@@ -21,11 +21,7 @@
 #include <wsipv6ok.h>
 #include <WSNwLink.h>
 #include <wsrm.h>
-
 #include <string.h>
-
-#include "WinTypes.h"
-#include "WinSockFunc.h"
 
 #define MAXDATASIZE 256 // max number of bytes we can get at once 
 
@@ -44,7 +40,7 @@ namespace Tcp_lab {
         WSACleanup();
     }
 
-    void Client::Initialize(PCSTR NodeName, PCSTR ServiceName)
+    bool Client::Initialize(PCSTR NodeName, PCSTR ServiceName)
     {
         InitializeWinSock2();
 
@@ -56,27 +52,27 @@ namespace Tcp_lab {
         if (rv != 0)
         {
             fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-            return;
+            return false;
         }
 
         if (m_ServInfo == NULL)
         {
             fprintf(stderr, "ERROR connection failed\n");
-            return;
+            return false;
         }
 
         m_SocketFd = socket(m_ServInfo->ai_family, m_ServInfo->ai_socktype, m_ServInfo->ai_protocol);
         if (m_SocketFd == -1)
         {
             perror("ERROR opening socket");
-            return;
+            return false;
         }
 
         if (connect(m_SocketFd, m_ServInfo->ai_addr, m_ServInfo->ai_addrlen) == -1)
         {
             closesocket(m_SocketFd);
             perror("ERROR connection failed");
-            return;
+            return false;
         }
 
         inet_ntop(m_ServInfo->ai_family, get_in_addr((struct sockaddr*)m_ServInfo->ai_addr),
@@ -84,6 +80,7 @@ namespace Tcp_lab {
         printf("client: connecting to %s\n", s);
 
         freeaddrinfo(m_ServInfo); // all done with this structure
+        return true;
     }
 
     void Client::SetNickname(char* nickname)
@@ -99,7 +96,7 @@ namespace Tcp_lab {
         char Message[MessageMaxSize];
         MessageInfo Info;
 
-        while (true)
+        while (m_IsRunning)
         {
             bzero(buffer, MaxMessageSize);
             bzero(Name, NameMaxSize);
@@ -110,6 +107,7 @@ namespace Tcp_lab {
             if (numbytes == -1)
             {
                 perror("ERROR reading from socket");
+                m_IsRunning = false;
                 return;
             }
             else
@@ -127,19 +125,25 @@ namespace Tcp_lab {
     {
         char MessageBuf[MessageMaxSize];
         char buff[MaxMessageSize];
-        while (true)
+        size_t TotalSize = 0;
+
+        while (m_IsRunning)
         {
             bzero(MessageBuf, MessageMaxSize);
             bzero(buff, MaxMessageSize);
+            TotalSize = 0;
 
-            fgets(MessageBuf, MessageMaxSize, stdin);
-            Serialize(buff, m_Name.c_str(), MessageBuf, m_Name.length(), strlen(MessageBuf));
-            size_t TotalSize = m_Name.length() + strlen(MessageBuf) + sizeof(MessageInfo);
+            if (fgets(MessageBuf, MessageMaxSize, stdin) != NULL)
+            {
+                Serialize(buff, m_Name.c_str(), MessageBuf, m_Name.length(), strlen(MessageBuf));
+                TotalSize = m_Name.length() + strlen(MessageBuf) + sizeof(MessageInfo);
+            }
 
             // Sending message to the server
-            if (send(m_SocketFd, buff, TotalSize, 0) < 0)
+            if (send(m_SocketFd, buff, TotalSize, 0) < 0 && m_IsRunning)
             {
                 perror("ERROR writing to socket");
+                m_IsRunning = false;
                 return;
             }
         }
@@ -149,21 +153,21 @@ int main(int argc, char* argv[])
 {
     if (argc < 3)
     {
-        fprintf(stderr,"usage: %s hostname port nickname(not necessarily)\n", argv[0]);
+        fprintf(stderr, "usage: %s hostname port nickname(not necessarily)\n", argv[0]);
         return 1;
     }
-    
 
     Tcp_lab::Client Client;
     if (argc == 4)
     {
         Client.SetNickname(argv[3]);
     }
-    Client.Initialize(argv[1], argv[2]);
-    Client.Reciever = std::thread(&Tcp_lab::Client::RecieverRun, &Client);
-    Client.Sender = std::thread(&Tcp_lab::Client::SenderRun, &Client);
-    Client.Reciever.join();
-    Client.Sender.join();
-
+    bool isInitialized = Client.Initialize(argv[1], argv[2]);
+    if (isInitialized)
+    {
+        Client.Reciever = std::thread(&Tcp_lab::Client::RecieverRun, &Client);
+        Client.Sender = std::thread(&Tcp_lab::Client::SenderRun, &Client);
+        Client.Reciever.join();
+    }
     return 0;
 }

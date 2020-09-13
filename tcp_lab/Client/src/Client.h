@@ -15,7 +15,7 @@ namespace Tcp_lab {
 		Client() { m_Name = "Default"; };
 		~Client();
 
-		void Initialize(PCSTR NodeName, PCSTR ServiceName);
+		bool Initialize(PCSTR NodeName, PCSTR ServiceName);
 		inline void SetNickname(char* nickname);
 
 		void SenderRun();
@@ -26,6 +26,8 @@ namespace Tcp_lab {
 		std::thread Reciever;
 
 	private:
+		bool m_IsRunning = true;
+
 		std::string m_Name;
 		//char m_Name[NameMaxSize];
 

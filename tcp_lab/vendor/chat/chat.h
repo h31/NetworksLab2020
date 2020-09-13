@@ -3,8 +3,8 @@
 #include <WinSock2.h>
 #include <chrono>
 #include <ctime>
-#include <memory.h>
-#include <stdint.h>
+#include <memory.h> //memcpy
+#include <stdint.h> //fixed size types
 #include <string>
 #include "WinTypes.h"
 
@@ -31,6 +31,8 @@ struct MessageInfo
 #define NameMaxSize 64
 #define MessageMaxSize 255
 #define MaxMessageSize NameMaxSize + MessageMaxSize + sizeof(MessageInfo)
+
+#define DisconnectCommand "Disconnect"
 
 namespace Tcp_lab {
 

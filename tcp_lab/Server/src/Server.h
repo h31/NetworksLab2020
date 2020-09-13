@@ -2,12 +2,9 @@
 
 #include "chat.h"
 
-#include <WinSock2.h>
-#include <stdint.h>
-#include <vector>
 #include <thread>
-#include <list>
-#include <string>
+#include <mutex>
+#include <unordered_map>
 
 namespace Tcp_lab {
 	
@@ -19,14 +16,15 @@ namespace Tcp_lab {
 
 		void Run();
 	private:
-		void ClientRun(size_t IndexInSocketArray, struct sockaddr_in ClientAddr, int ClientLen);
+		void ClientRun(SOCKET ClientSocket, struct sockaddr_in ClientAddr, int ClientLen);
+		void CleanThread(SOCKET ClientSocket);
 
 	private:
 		SOCKET                   m_Sockfd;
 		uint16_t                 m_PortNum;
 		struct sockaddr_in       m_ServerAddr;
 
-		std::vector<SOCKET>      m_ClientSockets;
-		std::vector<std::thread> m_ChatThreads;
+		std::unordered_map<SOCKET, std::thread> m_SocketToThreadMap;
+		std::mutex m_Mutex;
 	};
 }

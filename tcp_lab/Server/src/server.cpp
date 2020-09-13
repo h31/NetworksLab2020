@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <utility>
 #include <string.h>
 
 #include <assert.h>
@@ -66,20 +66,27 @@ namespace Tcp_lab {
 
             if (newsockfd < 0)
             {
-                perror("ERROR on accept");
+                printf("Error on accept: %i", WSAGetLastError());
                 exit(1);
             }
             else
             {
-                m_ClientSockets.emplace_back(newsockfd);
-                m_ChatThreads.emplace_back(std::thread(&Tcp_lab::Server::ClientRun, this, m_ChatThreads.size(), cli_addr, clilen));
+                std::lock_guard<std::mutex> guard(m_Mutex);
+                m_SocketToThreadMap[newsockfd] = std::thread(&Tcp_lab::Server::ClientRun, this, newsockfd, cli_addr, clilen);
             }
         }
     }
 
-    void Server::ClientRun(size_t IndexInSocketArray, struct sockaddr_in ClientAddr, int ClientLen)
+    void Server::CleanThread(SOCKET ClientSocket)
     {
-        SOCKET ClientSocket = m_ClientSockets[IndexInSocketArray]; //client Socket
+        std::lock_guard<std::mutex> guard(m_Mutex);
+        std::thread& thread = m_SocketToThreadMap[ClientSocket];
+        while (thread.joinable()) {}
+        m_SocketToThreadMap.erase(ClientSocket);
+    }
+
+    void Server::ClientRun(SOCKET ClientSocket, struct sockaddr_in ClientAddr, int ClientLen)
+    {
         char buffer[MaxMessageSize]; //buffer for command
         int bytesnum; //result code
 
@@ -98,12 +105,14 @@ namespace Tcp_lab {
 
             printf("recived %i bytes\n", bytesnum);
 
+            std::lock_guard<std::mutex> guard(m_Mutex);
             /*Broadcasting the sended message*/
-            for (size_t i = 0; i < m_ClientSockets.size(); i++)
+            for (auto SocketToThread = m_SocketToThreadMap.begin(); SocketToThread != m_SocketToThreadMap.end(); ++SocketToThread)
             {
-                if (m_ClientSockets[i] != INVALID_SOCKET && i != IndexInSocketArray)
+                SOCKET broadcastingSocket = SocketToThread->first;
+                if (broadcastingSocket != INVALID_SOCKET && broadcastingSocket != ClientSocket)
                 {
-                    send(m_ClientSockets[i], buffer, bytesnum, 0);
+                    send(broadcastingSocket, buffer, bytesnum, 0);
                 }
             }
         }
