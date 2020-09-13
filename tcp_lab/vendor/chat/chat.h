@@ -32,8 +32,6 @@ struct MessageInfo
 #define MessageMaxSize 255
 #define MaxMessageSize NameMaxSize + MessageMaxSize + sizeof(MessageInfo)
 
-#define DisconnectCommand "Disconnect"
-
 namespace Tcp_lab {
 
 	uint64_t GetExactCurrentTime()
