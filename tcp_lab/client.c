@@ -10,7 +10,7 @@
 
 char msg[MAXDATASIZE];
 
-void trimString (char str[100], int length){
+void trimString (char str[32], int length){
 	for (int i = 0; i < length; i++) {
 		// trim \n
 		if (str[i] == '\n') {
