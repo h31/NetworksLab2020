@@ -1,3 +1,4 @@
+import logging
 import socket
 import threading
 
@@ -21,25 +22,36 @@ def main():
         nonlocal connecting
         for user in range(USERS_EXPECTED_NUMBER):
             conn, addr = server_socket.accept()
-            connections.append(conn)
+
+            if conn not in connections:
+                connections.append(conn)
+                threading.Thread(target=_send_data, args=(len(connections) - 1,)).start()
             connecting = True
-            print(addr, 'connected')
-            for each in range(len(connections)):
-                threading.Thread(target=_send_data, args=(each,)).start()
+            print(f'user n.{len(connections)} with address {addr} is connected')
             connecting = False
             threading.Thread(target=_connect_users).start()
 
     def _send_data(user):
         while True:
-            data_header = connections[user].recv(HEADER_LENGTH)
-            data_length = int(data_header.decode('utf-8').strip())
-            data = connections[user].recv(data_length).decode('utf-8')
-            for each in range(len(connections)):
-                connections[each].send(data_header + data.encode('utf-8'))
-            if not data or connecting:
-                break
-        print('Closing connections')
-        server_socket.close()
+            try:
+                data_header = connections[user].recv(HEADER_LENGTH)
+                if not len(data_header):
+                    print('No more data from the client')
+                    connections[user].close()
+                    return False
+
+                data_length = int(data_header.decode('utf-8').strip())
+                data = connections[user].recv(data_length).decode('utf-8')
+                for each in range(len(connections)):
+                    connections[each].send(data_header + data.encode('utf-8'))
+                if not data or connecting:
+                    break
+            except ConnectionResetError as ex:
+                logging.error(ex)
+                connections[user].close()
+                print(f'user n.{user + 1} has been disconnected')
+                connections.remove(connections[user])
+                return False
 
     threading.Thread(target=_connect_users).start()
 
