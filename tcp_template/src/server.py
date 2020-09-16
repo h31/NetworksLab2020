@@ -70,12 +70,12 @@ def main():
     server_socket.bind(('', 5001))
     server_socket.listen(5)
     sending_message_thread = SendingMessageThread()
-    sending_message_thread.run()
+    sending_message_thread.start()
     while True:
         conn, addr = server_socket.accept()
         add_to_clients(addr, conn)
         rt = ClientThread(conn, addr)
-        rt.run()
+        rt.start()
         if end_sending:
             break
     server_socket.shutdown(socket.SHUT_RD)

@@ -23,15 +23,15 @@ class ReceiveMessageThread(Thread):
 def main():
     global nickname
     print('Start client')
-    nickname = '[' + input('Введите ваше имя') + ']:'
+    nickname = '[' + input('Введите ваше имя ') + ']:'
     sock = socket.socket()
     sock.connect(('localhost', 5001))
     receive_message_thread = ReceiveMessageThread(sock)
-    receive_message_thread.run()
+    receive_message_thread.start()
     while True:
         if server_shutdown:
             break
-        message = input('Ввод: ')
+        message = input()
         sock.send((nickname + message).encode('utf-8'))
     sock.shutdown(socket.SHUT_RD)
     sock.close()
