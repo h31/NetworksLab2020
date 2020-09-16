@@ -26,9 +26,12 @@ def send_message():
 
 
 def delete_client(client_address, client_socket: socket):
+    global end_sending
     del clients[client_address]
     client_socket.shutdown(socket.SHUT_RD)
     client_socket.close()
+    if not clients:
+        end_sending = True
 
 
 class ClientThread(Thread):
@@ -73,6 +76,10 @@ def main():
         add_to_clients(addr, conn)
         rt = ClientThread(conn, addr)
         rt.run()
+        if end_sending:
+            break
+    server_socket.shutdown(socket.SHUT_RD)
+    server_socket.close()
 
 
 if __name__ == '__main__':
