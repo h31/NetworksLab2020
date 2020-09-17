@@ -28,8 +28,8 @@ def send_message():
 def delete_client(client_address, client_socket: socket):
     global end_sending
     del clients[client_address]
-    client_socket.shutdown(socket.SHUT_RD)
     client_socket.close()
+    print('Отключен:', client_address)
     if not clients:
         end_sending = True
 
@@ -48,6 +48,9 @@ class ClientThread(Thread):
             if data == b'':
                 break
             message = data.decode('utf-8')
+            name = message.find(':') + 1
+            if message[name:] == 'exit()':
+                break
             add_to_messages(message)
         delete_client(self.client_address, self.socket)
 
@@ -64,22 +67,35 @@ class SendingMessageThread(Thread):
             send_message()
 
 
+class AcceptThread(Thread):
+    def __init__(self, server_socket: socket):
+        Thread.__init__(self)
+        self.server_socket = server_socket
+
+    def run(self):
+        while True:
+            conn, addr = self.server_socket.accept()
+            add_to_clients(addr, conn)
+            rt = ClientThread(conn, addr)
+            rt.start()
+            if end_sending:
+                break
+
+
 def main():
     print('Start server')
-    server_socket = socket.socket()
-    server_socket.bind(('', 5001))
-    server_socket.listen(5)
+    sock = socket.socket()
+    sock.bind(('', 5001))
+    sock.listen(5)
     sending_message_thread = SendingMessageThread()
     sending_message_thread.start()
+    accept_thread = AcceptThread(sock)
+    accept_thread.start()
     while True:
-        conn, addr = server_socket.accept()
-        add_to_clients(addr, conn)
-        rt = ClientThread(conn, addr)
-        rt.start()
         if end_sending:
             break
-    server_socket.shutdown(socket.SHUT_RD)
-    server_socket.close()
+    sock.close()
+    print('Close server')
 
 
 if __name__ == '__main__':

@@ -12,9 +12,11 @@ class ReceiveMessageThread(Thread):
         self.socket = server_socket
 
     def run(self):
-        while True:
+        global server_shutdown
+        while not server_shutdown:
             data = self.socket.recv(2048)
             if data == b'':
+                server_shutdown = True
                 break
             message = data.decode('utf-8')
             print(message)
@@ -22,18 +24,20 @@ class ReceiveMessageThread(Thread):
 
 def main():
     global nickname
+    global server_shutdown
     print('Start client')
     nickname = '[' + input('Введите ваше имя ') + ']:'
     sock = socket.socket()
     sock.connect(('localhost', 5001))
     receive_message_thread = ReceiveMessageThread(sock)
     receive_message_thread.start()
-    while True:
-        if server_shutdown:
-            break
+    while not server_shutdown:
         message = input()
         sock.send((nickname + message).encode('utf-8'))
-    sock.shutdown(socket.SHUT_RD)
+        if message == 'exit()':
+            server_shutdown = True
+            break
+    sock.shutdown(socket.SHUT_WR)
     sock.close()
     print('Close client')
 
