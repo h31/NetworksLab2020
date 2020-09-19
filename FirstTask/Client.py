@@ -3,14 +3,17 @@ import logging
 import pickle
 import pytz
 import threading
+from termcolor import colored
 
 from FirstTask.CustomSocket import CustomSocket
+from FirstTask.MessageValidator import MessageValidator
 
 HOST = '127.0.0.1'
 PORT = 8080
 HEADER_LENGTH = 10
 
 UTC = pytz.utc
+message_validator = MessageValidator()
 
 
 def main():
@@ -29,7 +32,7 @@ def main():
                     return False
                 data_length = int(data_header.decode('utf-8').strip())
                 data = pickle.loads(server_socket.receive_bytes_num(data_length))
-                print(data)
+                _print_msg(data)
             except ConnectionResetError as ex:
                 logging.error(ex)
                 server_socket.close()
@@ -55,6 +58,18 @@ def main():
         msg_len = len(msg)
         msg = bytes(f"{msg_len:<{HEADER_LENGTH}}", 'utf-8') + msg
         return msg, msg_len
+
+    def _print_msg(msg):
+        if not message_validator.check(msg):
+            print('Message is not correct')
+            server_socket.close()  # shutdown write, get 0 on the server, close socket on the server, then close this connection
+            return False
+        msg_user_name = msg['name']
+        msg_time_sent = msg['time_sent']
+        msg_content = msg['content']
+        print(colored(msg_user_name, 'magenta', attrs=['bold']),
+              colored(msg_time_sent, 'blue'),
+              colored(msg_content, 'cyan'))
 
     threading.Thread(target=_receive_msg).start()
     threading.Thread(target=_send_msg).start()

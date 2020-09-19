@@ -3,11 +3,14 @@ import pickle
 import threading
 
 from FirstTask.CustomSocket import CustomSocket
+from FirstTask.MessageValidator import MessageValidator
 
 HOST = '127.0.0.1'
 PORT = 8080
 HEADER_LENGTH = 10
 USERS_EXPECTED_NUMBER = 10
+
+message_validator = MessageValidator()
 
 
 def main():
@@ -42,6 +45,11 @@ def main():
                     print('No more data from the client')
                     connections[user].close()
                     break
+
+                if not message_validator.check(data):
+                    print('Message is not correct')
+                    connections[user].close()  # shutdown write, get 0 on the server, close socket on the server, then close this connection
+                    return False
 
                 for each in range(len(connections)):
                     connections[each].send(data_header + pickle.dumps(data))
