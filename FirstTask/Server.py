@@ -1,4 +1,5 @@
 import logging
+import pickle
 import socket
 import threading
 
@@ -34,24 +35,29 @@ def main():
     def _send_data(user):
         while True:
             try:
-                data_header = connections[user].recv(HEADER_LENGTH)
-                if not len(data_header):
+                data_header, data = _receive_data(user)
+
+                if not data_header or not data or connecting:
                     print('No more data from the client')
                     connections[user].close()
-                    return False
-
-                data_length = int(data_header.decode('utf-8').strip())
-                data = connections[user].recv(data_length).decode('utf-8')
-                for each in range(len(connections)):
-                    connections[each].send(data_header + data.encode('utf-8'))
-                if not data or connecting:
                     break
+
+                for each in range(len(connections)):
+                    connections[each].send(data_header + pickle.dumps(data))
             except ConnectionResetError as ex:
                 logging.error(ex)
                 connections[user].close()
                 print(f'user n.{user + 1} has been disconnected')
                 connections.remove(connections[user])
                 return False
+
+    def _receive_data(user):
+        data_header = connections[user].recv(HEADER_LENGTH)
+        if not data_header:
+            return False, False
+        data_length = int(data_header.decode('utf-8').strip())
+        data = pickle.loads(connections[user].recv(data_length))
+        return data_header, data
 
     threading.Thread(target=_connect_users).start()
 
