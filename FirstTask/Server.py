@@ -1,7 +1,8 @@
 import logging
 import pickle
-import socket
 import threading
+
+from FirstTask.CustomSocket import CustomSocket
 
 HOST = '127.0.0.1'
 PORT = 8080
@@ -10,9 +11,9 @@ USERS_EXPECTED_NUMBER = 10
 
 
 def main():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
+    server_socket = CustomSocket()
+    server_socket.setsockopt()
+    server_socket.bind(HOST, PORT)
     server_socket.listen(USERS_EXPECTED_NUMBER)
     print('Listening for connections...')
 
@@ -52,11 +53,11 @@ def main():
                 return False
 
     def _receive_data(user):
-        data_header = connections[user].recv(HEADER_LENGTH)
+        data_header = server_socket.receive_bytes_num(HEADER_LENGTH, connections[user])
         if not data_header:
             return False, False
         data_length = int(data_header.decode('utf-8').strip())
-        data = pickle.loads(connections[user].recv(data_length))
+        data = pickle.loads(server_socket.receive_bytes_num(data_length, connections[user]))
         return data_header, data
 
     threading.Thread(target=_connect_users).start()
