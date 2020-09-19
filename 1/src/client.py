@@ -2,7 +2,6 @@ import socket
 import threading
 import json
 import sys
-import errno
 
 HOST = 'localhost'
 PORT = 5003
@@ -42,8 +41,6 @@ def recv_msg(cs):
             msg = cs.recv(int(req.decode().strip()))
             print(msg.decode())
         except Exception as e:
-            if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-                sys.exit(1)
             continue
 
 
@@ -51,7 +48,6 @@ def client():
     name = input('Your nickname: ')
     cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cs.connect((HOST, PORT))
-    cs.setblocking(False)
     cs.send(msg_content(0, name))
     threading.Thread(target=send_msg, args=(cs, name)).start()
     threading.Thread(target=recv_msg, args=(cs,)).start()
