@@ -3,13 +3,14 @@ import threading
 
 all_sock = {}
 data = ""
+socket_from = socket
 
 
-def sending_to_all(msg):
+def sending_to_all(msg, sock):
     global all_sock
-    # global data
     for a in all_sock.keys():
-        all_sock[a].send(msg)
+        if all_sock[a] != sock:
+            all_sock[a].send(msg)
 
 
 class ThreadReceive(threading.Thread):
@@ -21,12 +22,15 @@ class ThreadReceive(threading.Thread):
         global all_sock
         all_sock[client_address] = clientsock
         global data
+        global socket_from
         self.csocket.send("Hello from Letta".encode('UTF-8'))
         while True:
             data = self.csocket.recv(1024).decode('utf-8')
+            socket_from = self.csocket
             if data == b'':
                 break
             print("from client", data)
+            print("address", socket_from)
         # print("Client at ", client_address, "disconnected...")
 
 
@@ -37,9 +41,11 @@ class ThreadSend(threading.Thread):
     def run(self):
         while True:
             global data
+            global socket_from
             if data != '':
-                sending_to_all(bytes(data, 'UTF-8'))
+                sending_to_all(bytes(data, 'UTF-8'), socket_from)
                 data = ""
+
 
 
 if __name__ == '__main__':

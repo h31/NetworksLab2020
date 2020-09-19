@@ -24,4 +24,4 @@ while True:
     thread_receive.start()
     out_data = input()
     client.send(bytes(out_data, 'UTF-8'))
-
+#client.close()
