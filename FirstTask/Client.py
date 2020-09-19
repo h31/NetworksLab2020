@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 import pickle
 import pytz
@@ -13,6 +13,9 @@ PORT = 8080
 HEADER_LENGTH = 10
 
 UTC = pytz.utc
+local_timezone = datetime.now(timezone.utc).astimezone()
+utc_offset = local_timezone.utcoffset() // timedelta(seconds=1)
+
 message_validator = MessageValidator()
 
 
@@ -53,6 +56,8 @@ def main():
                 return False
 
     def _build_msg(input_msg):
+        while not input_msg:
+            input_msg = input()
         msg = {'name': user_name, 'time_sent': datetime.now(UTC), 'content': input_msg}
         msg = pickle.dumps(msg)
         msg_len = len(msg)
@@ -65,9 +70,10 @@ def main():
             server_socket.close()  # shutdown write, get 0 on the server, close socket on the server, then close this connection
             return False
         msg_user_name = msg['name']
-        msg_time_sent = msg['time_sent']
+        msg_time_sent = (msg['time_sent'] + timedelta(0, utc_offset)).strftime('%H:%M')
         msg_content = msg['content']
-        print(colored(msg_user_name, 'magenta', attrs=['bold']),
+        user_name_color = 'magenta' if (msg_user_name != user_name) else 'yellow'
+        print(colored(msg_user_name, user_name_color, attrs=['bold']),
               colored(msg_time_sent, 'blue'),
               colored(msg_content, 'cyan'))
 
