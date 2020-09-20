@@ -1,12 +1,6 @@
-#pragma once
-
 #include "Server.h"
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <utility>
-#include <string.h>
-
 #include <assert.h>
 
 namespace Tcp_lab {
@@ -15,23 +9,23 @@ namespace Tcp_lab {
     {
         InitializeWinSock2();
 
-        m_Sockfd = socket(AF_INET, SOCK_STREAM, 0);
-        if (m_Sockfd < 0)
+        Sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        if (Sockfd < 0)
         {
             perror("ERROR opening socket");
             assert(0);
         }
 
         /* Initialize socket structure */
-        bzero((char*)&m_ServerAddr, sizeof(m_ServerAddr));
-        m_PortNum = 5001;
+        bzero((char*)&ServerAddr, sizeof(ServerAddr));
+        PortNum = 5001;
 
-        m_ServerAddr.sin_family = AF_INET;
-        m_ServerAddr.sin_addr.s_addr = INADDR_ANY;
-        m_ServerAddr.sin_port = htons(m_PortNum);
+        ServerAddr.sin_family = AF_INET;
+        ServerAddr.sin_addr.s_addr = INADDR_ANY;
+        ServerAddr.sin_port = htons(PortNum);
 
         /* Now bind the host address using bind() call.*/
-        if (bind(m_Sockfd, (struct sockaddr*)&m_ServerAddr, sizeof(m_ServerAddr)) < 0)
+        if (bind(Sockfd, (struct sockaddr*)&ServerAddr, sizeof(ServerAddr)) < 0)
         {
             perror("ERROR on binding");
             exit(1);
@@ -40,8 +34,14 @@ namespace Tcp_lab {
 
     Server::~Server()
     {
+        //close all connections
+        for (auto SocketToThread = SocketToThreadMap.begin(); SocketToThread != SocketToThreadMap.end(); ++SocketToThread)
+        {
+            SOCKET broadcastingSocket = SocketToThread->first;
+            shutdown(broadcastingSocket, SD_BOTH);
+        }
         //close socket
-        closesocket(m_Sockfd);
+        closesocket(Sockfd);
         //Cleanup winsock
         WSACleanup();
     }
@@ -49,20 +49,20 @@ namespace Tcp_lab {
     void Server::Run()
     {
         /* Now start listening for the clients, here process will
-       * go in sleep mode and will wait for the incoming connection
-    */
+         * go in sleep mode and will wait for the incoming connection
+         */
         int clilen;
         SOCKET newsockfd;
         struct sockaddr_in cli_addr;
 
         //Transform state of socket to listening
-        listen(m_Sockfd, 5); 
+        listen(Sockfd, 5); 
         clilen = sizeof(cli_addr);
 
         while (true)
         {
             /* tracking of incoming connection */
-            newsockfd = accept(m_Sockfd, (struct sockaddr*)&cli_addr, &clilen);
+            newsockfd = accept(Sockfd, (struct sockaddr*)&cli_addr, &clilen);
 
             if (newsockfd < 0)
             {
@@ -71,48 +71,65 @@ namespace Tcp_lab {
             }
             else
             {
-                std::lock_guard<std::mutex> guard(m_Mutex);
-                m_SocketToThreadMap[newsockfd] = std::thread(&Tcp_lab::Server::ClientRun, this, newsockfd, cli_addr, clilen);
+                //std::lock_guard<std::mutex> guard(Mutex);
+                SocketToThreadMap[newsockfd] = std::thread(&Tcp_lab::Server::ClientRun, this, newsockfd, cli_addr, clilen);
             }
         }
     }
 
     void Server::CleanThread(SOCKET ClientSocket)
     {
-        std::lock_guard<std::mutex> guard(m_Mutex);
-        std::thread& thread = m_SocketToThreadMap[ClientSocket];
+        std::lock_guard<std::mutex> guard(Mutex);
+        std::thread& thread = SocketToThreadMap[ClientSocket];
         while (thread.joinable()) {}
-        m_SocketToThreadMap.erase(ClientSocket);
+        SocketToThreadMap.erase(ClientSocket);
     }
 
     void Server::ClientRun(SOCKET ClientSocket, struct sockaddr_in ClientAddr, int ClientLen)
     {
-        char buffer[MaxMessageSize]; //buffer for command
+        char buffer[MaxBufferSize]; //buffer for command
         int bytesnum; //result code
+        uint8_t counter = 0;
 
         while (true)
         {
-            bzero(buffer, MaxMessageSize);
+            bzero(buffer, MaxBufferSize);
 
             /* Wait for message from client */
-            bytesnum = recv(ClientSocket, buffer, MaxMessageSize, 0); // recv on Windows
-            if (bytesnum < 0)
+            bytesnum = recv(ClientSocket, buffer, MaxBufferSize, 0); // recv on Windows
+            if (bytesnum == 0)
             {
+                std::lock_guard<std::mutex> guard(Mutex);
                 perror("Client Disconnected");
                 shutdown(ClientSocket, SD_BOTH);
+                SocketToThreadMap[ClientSocket].detach();
+                size_t ClientCount = SocketToThreadMap.size();
+                SocketToThreadMap.erase(ClientSocket);
+                printf("Clients Count updated: new %i, was %i ", SocketToThreadMap.size(), ClientCount);
                 return;
             }
-
-            printf("recived %i bytes\n", bytesnum);
-
-            std::lock_guard<std::mutex> guard(m_Mutex);
-            /*Broadcasting the sended message*/
-            for (auto SocketToThread = m_SocketToThreadMap.begin(); SocketToThread != m_SocketToThreadMap.end(); ++SocketToThread)
+            else if (bytesnum == -1)
             {
-                SOCKET broadcastingSocket = SocketToThread->first;
-                if (broadcastingSocket != INVALID_SOCKET && broadcastingSocket != ClientSocket)
+                if (++counter > 5)
                 {
-                    send(broadcastingSocket, buffer, bytesnum, 0);
+                    perror("Client Disconnected with Error");
+                    shutdown(ClientSocket, SD_BOTH);
+                    return;
+                }
+            }
+            else
+            {
+                printf("recived %i bytes\n", bytesnum);
+
+                //std::lock_guard<std::mutex> guard(Mutex);
+                /*Broadcasting the sended message*/
+                for (auto SocketToThread = SocketToThreadMap.begin(); SocketToThread != SocketToThreadMap.end(); SocketToThread++)
+                {
+                    SOCKET broadcastingSocket = SocketToThread->first;
+                    if (broadcastingSocket != INVALID_SOCKET && broadcastingSocket != ClientSocket)
+                    {
+                        send(broadcastingSocket, buffer, bytesnum, 0);
+                    }
                 }
             }
         }

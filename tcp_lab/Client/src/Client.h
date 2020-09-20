@@ -1,38 +1,30 @@
 #pragma once
 
+//socket and serialization header
 #include "chat.h"
-
-#include <WinSock2.h>
-#include <ws2ipdef.h>
-
-#include <thread>
 
 namespace Tcp_lab {
 
 	class Client
 	{
 	public:
-		Client() { m_Name = "Default"; };
+		Client() : StdinHandle(GetStdHandle(STD_INPUT_HANDLE)), IsRunning(true), Name("Default"), SocketFd(0) {}
 		~Client();
 
+		//PCSTR - Pointer Const Not Wide String
 		bool Initialize(PCSTR NodeName, PCSTR ServiceName);
-		inline void SetNickname(char* nickname);
+		inline void SetNickname(PCSTR nickname);
 
 		void SenderRun();
 		void RecieverRun();
 
 	public:
-		std::thread Sender;
 		std::thread Reciever;
+		HANDLE StdinHandle;
 
 	private:
-		bool m_IsRunning = true;
-
-		std::string m_Name;
-		//char m_Name[NameMaxSize];
-
-		SOCKET m_SocketFd;
-		struct addrinfo m_Hints, * m_ServInfo;
-		char s[INET_ADDRSTRLEN];
+		bool IsRunning = true;
+		std::string Name;
+		SOCKET SocketFd;
 	};
 }

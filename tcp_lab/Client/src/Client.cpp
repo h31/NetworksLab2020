@@ -1,30 +1,5 @@
 #include "Client.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-
-#include <AF_Irda.h>
-#include <in6addr.h>
-#include <mstcpip.h>
-#include <MSWSock.h>
-#include <nsemail.h>
-#include <NspAPI.h>
-#include <socketapi.h>
-//#include <SpOrder.h>
-#include <transportsettingcommon.h>
-#include <winsock.h>
-#include <WS2atm.h>
-#include <WS2spi.h>
-#include <wsipv6ok.h>
-#include <WSNwLink.h>
-#include <wsrm.h>
-#include <string.h>
-
-#define MAXDATASIZE 256 // max number of bytes we can get at once 
-
 // get sockaddr, IPv4:
 void* get_in_addr(struct sockaddr* sa)
 {
@@ -35,139 +10,183 @@ namespace Tcp_lab {
 
     Client::~Client()
     {
-        closesocket(m_SocketFd);
+        closesocket(SocketFd);
         //Cleanup winsock
         WSACleanup();
     }
 
     bool Client::Initialize(PCSTR NodeName, PCSTR ServiceName)
     {
+        struct addrinfo Hints, *ServInfo;
+        char ServInfoBuffer[INET_ADDRSTRLEN];
+
         InitializeWinSock2();
 
-        memset(&m_Hints, 0, sizeof m_Hints);
-        m_Hints.ai_family   = AF_INET;
-        m_Hints.ai_socktype = SOCK_STREAM;
+        memset(&Hints, 0, sizeof Hints);
+        Hints.ai_family   = AF_INET;
+        Hints.ai_socktype = SOCK_STREAM;
 
-        int rv = getaddrinfo(NodeName, ServiceName, &m_Hints, &m_ServInfo);
+        int rv = getaddrinfo(NodeName, ServiceName, &Hints, &ServInfo);
         if (rv != 0)
         {
             fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
             return false;
         }
-
-        if (m_ServInfo == NULL)
+        if (ServInfo == NULL)
         {
             fprintf(stderr, "ERROR connection failed\n");
             return false;
         }
 
-        m_SocketFd = socket(m_ServInfo->ai_family, m_ServInfo->ai_socktype, m_ServInfo->ai_protocol);
-        if (m_SocketFd == -1)
+        SocketFd = socket(ServInfo->ai_family, ServInfo->ai_socktype, ServInfo->ai_protocol);
+        if (SocketFd == -1)
         {
             perror("ERROR opening socket");
             return false;
         }
 
-        if (connect(m_SocketFd, m_ServInfo->ai_addr, m_ServInfo->ai_addrlen) == -1)
+        if (connect(SocketFd, ServInfo->ai_addr, ServInfo->ai_addrlen) == -1)
         {
-            closesocket(m_SocketFd);
+            closesocket(SocketFd);
             perror("ERROR connection failed");
             return false;
         }
 
-        inet_ntop(m_ServInfo->ai_family, get_in_addr((struct sockaddr*)m_ServInfo->ai_addr),
-            s, sizeof s);
-        printf("client: connecting to %s\n", s);
+        inet_ntop(ServInfo->ai_family, get_in_addr((struct sockaddr*)ServInfo->ai_addr),
+            ServInfoBuffer, sizeof ServInfoBuffer);
+        printf("client: connecting to %s\n", ServInfoBuffer);
 
-        freeaddrinfo(m_ServInfo); // all done with this structure
+        freeaddrinfo(ServInfo); // all done with this structure
         return true;
     }
 
-    void Client::SetNickname(char* nickname)
+    void Client::SetNickname(PCSTR nickname)
     {
-        m_Name = std::string(nickname);
+       Name = std::string(nickname);
     }
 
     void Client::RecieverRun()
     {
         int numbytes = 0;
-        char buffer[MaxMessageSize];
+
+        char buffer[MaxBufferSize];
         char Name[NameMaxSize];
         char Message[MessageMaxSize];
         MessageInfo Info;
 
-        while (m_IsRunning)
+        while (IsRunning)
         {
-            bzero(buffer, MaxMessageSize);
+            bzero(buffer, MaxBufferSize);
             bzero(Name, NameMaxSize);
             bzero(Message, MessageMaxSize);
 
-            numbytes = recv(m_SocketFd, buffer, MessageMaxSize, 0);
+            numbytes = recv(SocketFd, buffer, MessageMaxSize, 0);
             // Reading server response
-            if (numbytes == -1)
+            if (numbytes == 0)
+            {
+                perror("ERROR reading disconnect");
+                IsRunning = false;
+                return;
+            }
+            else if (numbytes == -1)
             {
                 perror("ERROR reading from socket");
-                m_IsRunning = false;
-                return;
             }
             else
             {
                 Desearilize(buffer, &Info, Name, Message);
-                time_t time = static_cast<time_t>(Info.m_Time);
+                time_t time = static_cast<time_t>(Info.Time);
                 struct tm* tmp = gmtime(&time);
 
-                printf("<%i:%i> [%s] %s\n", tmp->tm_hour, tmp->tm_min, Name, Message); 
+                std::printf("<%i:%i> [%s] : %s\n", tmp->tm_hour, tmp->tm_min, Name, Message);
             }
         }
     }
 
     void Client::SenderRun()
     {
-        char MessageBuf[MessageMaxSize];
-        char buff[MaxMessageSize];
+        char buff[MaxBufferSize]; //final output buffer
+        CHAR MessageBuf[MessageMaxSize];
+        TCHAR wstr[WideMessageMaxSize]; //buffer in wide char
         size_t TotalSize = 0;
 
-        while (m_IsRunning)
+        while (IsRunning)
         {
-            bzero(MessageBuf, MessageMaxSize);
-            bzero(buff, MaxMessageSize);
+            //clear all buffers and counters
+            bzero(MessageBuf, MessageMaxSize); 
+            bzero(buff, MaxBufferSize); 
+            bzero(wstr, MessageMaxSize);
             TotalSize = 0;
+            unsigned long readedBytes = 0; //size of readed bytes
 
-            if (fgets(MessageBuf, MessageMaxSize, stdin) != NULL)
+            if (ReadConsole(StdinHandle, wstr, MessageMaxSize, &readedBytes, NULL))
             {
-                Serialize(buff, m_Name.c_str(), MessageBuf, m_Name.length(), strlen(MessageBuf));
-                TotalSize = m_Name.length() + strlen(MessageBuf) + sizeof(MessageInfo);
+                size_t requiredBytesNum = WideCharToMultiByte(CP_UTF8, 0, wstr, readedBytes, MessageBuf, sizeof(MessageBuf), NULL, NULL);
+                //WideCharToMultiByte(CP_UTF8, 0, wstr, readedBytes, MessageBuf, requiredBytesNum, NULL, NULL);
+
+                if (strlen(MessageBuf) > MessageMaxSize - 1)
+                {
+                    Serialize(buff, Name.c_str(), MessageBuf, Name.length(), MessageMaxSize - 2);
+                    TotalSize = sizeof(uint16_t) + Name.length() + MessageMaxSize + sizeof(MessageInfo);
+                }
+                else
+                {
+                    Serialize(buff, Name.c_str(), MessageBuf, Name.length(), strlen(MessageBuf) - 1);
+                    TotalSize = sizeof(uint16_t) + Name.length() + strlen(MessageBuf) + sizeof(MessageInfo);
+                }
             }
 
-            // Sending message to the server
-            if (send(m_SocketFd, buff, TotalSize, 0) < 0 && m_IsRunning)
+            if (TotalSize > sizeof(MessageInfo))
             {
-                perror("ERROR writing to socket");
-                m_IsRunning = false;
-                return;
+                // Sending message to the server
+                if (send(SocketFd, buff, TotalSize, 0) < 0 && IsRunning)
+                {
+                    perror("ERROR writing to socket");
+                    IsRunning = false;
+                    return;
+                }
             }
         }
     }
 }
+
 int main(int argc, char* argv[])
 {
-    if (argc < 3)
-    {
-        fprintf(stderr, "usage: %s hostname port nickname(not necessarily)\n", argv[0]);
-        return 1;
-    }
-
     Tcp_lab::Client Client;
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    
+    //if it present in console as arg
     if (argc == 4)
     {
         Client.SetNickname(argv[3]);
     }
-    bool isInitialized = Client.Initialize(argv[1], argv[2]);
+    else
+    {
+        CHAR CharPtr[WideMessageMaxSize]; //buffer in simple char
+        TCHAR WideCharPtr[MessageMaxSize]; //buffer in wide char
+        unsigned long readedBytes = 0; //size of readed bytes
+        ReadConsole(Client.StdinHandle, WideCharPtr, NameMaxSize, &readedBytes, NULL);
+        size_t requiredBytesNum = WideCharToMultiByte(CP_UTF8, 0, WideCharPtr, readedBytes - 1, CharPtr, sizeof(NameMaxSize), NULL, NULL);
+        //WideCharToMultiByte(CP_UTF8, 0, WideCharPtr, readedBytes - 1, CharPtr, requiredBytesNum, NULL, NULL);
+        Client.SetNickname(CharPtr);
+    }
+
+    bool isInitialized = false;
+    if (argc < 3)
+    {
+        fprintf(stderr, "usage: %s hostname port nickname(not necessarily)\n", argv[0]);
+        isInitialized = Client.Initialize("127.0.0.1", "5001");
+    }
+    else
+    {
+        isInitialized = Client.Initialize(argv[1], argv[2]);
+    }
+    
     if (isInitialized)
     {
         Client.Reciever = std::thread(&Tcp_lab::Client::RecieverRun, &Client);
-        Client.Sender = std::thread(&Tcp_lab::Client::SenderRun, &Client);
-        Client.Reciever.join();
+        Client.SenderRun();
     }
-    return 0;
+    return 1;
 }

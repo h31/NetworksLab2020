@@ -46,7 +46,6 @@ project "Server"
 
 	links 
 	{ 
-		"Ws2_32.lib",
 		"kernel32.lib",
 		"user32.lib",
 		"gdi32.lib",
@@ -66,7 +65,14 @@ project "Server"
 
 		defines
 		{
-			--"wsock32.lib"
+			"WinSockApp",
+			"UNICODE",
+			"_UNICODE"
+		}
+
+		links 
+		{
+			"Ws2_32.lib"
 		}
 		
 		--postbuildcommands
@@ -115,7 +121,6 @@ project "Client"
 
 	links
 	{
-		"Ws2_32.lib",
 		"kernel32.lib",
 		"user32.lib",
 		"gdi32.lib",
@@ -135,7 +140,14 @@ project "Client"
 
 		defines
 		{
+		    "WinSockApp",
+			"UNICODE",
+			"_UNICODE"
+		}
 
+		links 
+		{
+		    "Ws2_32.lib"
 		}
 
 	filter "configurations:Debug"

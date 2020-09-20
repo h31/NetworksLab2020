@@ -1,8 +1,8 @@
 #pragma once
 
+//socket and serialization header
 #include "chat.h"
 
-#include <thread>
 #include <mutex>
 #include <unordered_map>
 
@@ -20,11 +20,11 @@ namespace Tcp_lab {
 		void CleanThread(SOCKET ClientSocket);
 
 	private:
-		SOCKET                   m_Sockfd;
-		uint16_t                 m_PortNum;
-		struct sockaddr_in       m_ServerAddr;
+		SOCKET             Sockfd;
+		uint16_t           PortNum;
+		struct sockaddr_in ServerAddr;
 
-		std::unordered_map<SOCKET, std::thread> m_SocketToThreadMap;
-		std::mutex m_Mutex;
+		std::unordered_map<SOCKET, std::thread> SocketToThreadMap;
+		std::mutex Mutex;
 	};
 }
