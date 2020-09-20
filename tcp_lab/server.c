@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <pthread.h>
@@ -9,15 +10,15 @@
 //Global variables
 pthread_mutex_t threadChat;
 int clients[20];
-int n=0;
+int n = 0;
 
-void sendToClient(char *msg,int tmp){
+void sendToClient(char *msg, int tmp){
 	int i;
 	pthread_mutex_lock(&threadChat);
 	for(i = 0; i < n; i++) {
 		if(clients[i] != tmp) {
-			if(send(clients[i],msg,strlen(msg),0) < 0) {
-				printf("sending failure n");
+			if(send(clients[i], msg, strlen(msg), 0) < 0) {
+				printf("ERROR sending to clients\n");
 				continue;
 			}
 		}
@@ -28,6 +29,7 @@ void sendToClient(char *msg,int tmp){
 void *recvmg(void *client_sock){
 	int sock = *((int *)client_sock);
 	char msg[MAXDATASIZE];
+	bzero(msg, MAXDATASIZE);
 	int len;
 	while((len = recv(sock, msg, MAXDATASIZE, 0)) > 0) {
 		msg[len] = '\0';
@@ -37,36 +39,43 @@ void *recvmg(void *client_sock){
 }
 
 int main(int argc, char *argv[]){
-	struct sockaddr_in serverIP;
+	struct sockaddr_in serverIP, cliAddr;
 	pthread_t recvt;
+	char *ip = "127.0.0.1";
 	int sockfd = 0, clientSock=0;
 	uint16_t portno;
 	
 	portno = atoi(argv[1]);
+	
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (sockfd < 0) {
+		printf("ERROR opening socket");
+		exit(1);
+	}
 
 	serverIP.sin_family = AF_INET;
 	serverIP.sin_port = htons(portno);
-	serverIP.sin_addr.s_addr = inet_addr("127.0.0.1");
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	
-	if( bind( sockfd, (struct sockaddr *)&serverIP, sizeof(serverIP)) == -1 )
-		printf("cannot bind, error!!\n");
+	serverIP.sin_addr.s_addr = inet_addr(ip);
+
+	/* bind the host address using bind() call.*/
+	if(bind( sockfd, (struct sockaddr *)&serverIP, sizeof(serverIP)) == -1 )
+		printf("ERROR on binding\n");
 	else
 		printf("Server Started\n");
-		
-	if( listen(sockfd, 20) == -1 )
-		printf("listening failed\n");
+	
+	if(listen(sockfd, 20) == -1 )
+		printf("ERROR listening\n");
 		
 	while(1){
-		if( (clientSock = accept(sockfd, (struct sockaddr *)NULL,NULL)) < 0 )
-			printf("accept failed  n");
+		if((clientSock = accept(sockfd, (struct sockaddr *) NULL, NULL)) < 0 )
+			printf("ERROR on accept\n");
 		pthread_mutex_lock(&threadChat);
-		clients[n]= clientSock;
+		clients[n] = clientSock;
 		n++;
-		// creating a thread for each client 
-		pthread_create(&recvt,NULL,(void *)recvmg, &clientSock);
+		// Creating a thread for each client 
+		pthread_create(&recvt, NULL, (void *)recvmg, &clientSock);
 		pthread_mutex_unlock(&threadChat);
 	}
 	return 0; 
-	
 }

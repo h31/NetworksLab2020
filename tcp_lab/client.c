@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -24,8 +25,9 @@ void *recvmg(void *my_sock)
 {
 	int sock = *((int *)my_sock);
 	int len;
-	// client thread always ready to receive message
-	while((len = recv(sock, msg, MAXDATASIZE ,0)) > 0) {
+	bzero(msg, MAXDATASIZE);
+	// Client thread always ready to receive message
+	while((len = recv(sock, msg, MAXDATASIZE, 0)) > 0) {
 		msg[len] = '\0';
 		fputs(msg, stdout);
 	}
@@ -33,7 +35,6 @@ void *recvmg(void *my_sock)
 
 int main(int argc,char *argv[]){
 	pthread_t recvt;
-	int numbytes, len;
 	int sockfd;
 	char buf[MAXDATASIZE];
 	struct sockaddr_in serverIP;
@@ -47,29 +48,44 @@ int main(int argc,char *argv[]){
 	printf("Please enter your name: ");
 	fgets(clientName, 32, stdin);
 	trimString(clientName, strlen(clientName));
+
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	
+	if (sockfd < 0) {
+		printf("ERROR opening socket\n");
+		exit(1);
+	}
+
 	serverIP.sin_port = htons(port);
 	serverIP.sin_family= AF_INET;
 	serverIP.sin_addr.s_addr = inet_addr(ip);
-	if( (connect(sockfd, (struct sockaddr *)&serverIP,sizeof(serverIP))) == -1 )
-		printf("\nconnection to socket failed\n");
+
+	if( (connect(sockfd, (struct sockaddr *)&serverIP,sizeof(serverIP))) == -1 ) {
+		close(sockfd);
+		printf("ERROR connection to socket failed\n");
+		return 1;
+	}
+		
 	
-	//creating a client thread which is always waiting for a message
+	// Creating a client thread which is always waiting for a message
 	pthread_create(&recvt, NULL, (void *)recvmg, &sockfd);
 
 	struct tm *tm = localtime(&t);
-
-	//ready to read a message from console
+	
+	// Ready to read a message from console
 	while(fgets(msg, MAXDATASIZE, stdin) > 0) {
+		bzero(buf, MAXDATASIZE);
 		strftime(buf, MAXDATASIZE, "<%H:%M> ", tm);
 		strcat(strcat(strcat(buf, clientName), " : "), msg);
-		numbytes = write(sockfd, buf, strlen(buf));
-		if(numbytes < 0) 
-			printf("\nmessage not sent\n");
+		if(write(sockfd, buf, strlen(buf)) < 0) {
+			printf("ERROR writing to socket\n");
+			return 1;
+		}
+		bzero(msg, MAXDATASIZE);
 	}
 	
-	//thread is closed
-	pthread_join(recvt,NULL);
+	// Thread is closed
+	pthread_join(recvt, NULL);
 	close(sockfd);
 	return 0;
 }
