@@ -18,6 +18,8 @@ namespace Tcp_lab {
 		void SenderRun();
 		void RecieverRun();
 
+		void PrintDebug();
+
 	public:
 		std::thread Reciever;
 		HANDLE StdinHandle;

@@ -66,13 +66,14 @@ namespace Tcp_lab {
 
             if (newsockfd < 0)
             {
-                printf("Error on accept: %i", WSAGetLastError());
+                std::printf("Error on accept: %i", WSAGetLastError());
                 exit(1);
             }
             else
             {
-                //std::lock_guard<std::mutex> guard(Mutex);
+                std::lock_guard<std::mutex> guard(Mutex);
                 SocketToThreadMap[newsockfd] = std::thread(&Tcp_lab::Server::ClientRun, this, newsockfd, cli_addr, clilen);
+                std::printf("Client connected: adress [%i] port [%i], New clients count: %i\n", cli_addr.sin_addr, cli_addr.sin_port, SocketToThreadMap.size());
             }
         }
     }
@@ -80,9 +81,10 @@ namespace Tcp_lab {
     void Server::CleanThread(SOCKET ClientSocket)
     {
         std::lock_guard<std::mutex> guard(Mutex);
-        std::thread& thread = SocketToThreadMap[ClientSocket];
-        while (thread.joinable()) {}
+        SocketToThreadMap[ClientSocket].detach();
+        size_t ClientCount = SocketToThreadMap.size();
         SocketToThreadMap.erase(ClientSocket);
+        printf("Clients Count updated: was %i, new %i\n", SocketToThreadMap.size(), ClientCount);
     }
 
     void Server::ClientRun(SOCKET ClientSocket, struct sockaddr_in ClientAddr, int ClientLen)
@@ -99,21 +101,18 @@ namespace Tcp_lab {
             bytesnum = recv(ClientSocket, buffer, MaxBufferSize, 0); // recv on Windows
             if (bytesnum == 0)
             {
-                std::lock_guard<std::mutex> guard(Mutex);
                 perror("Client Disconnected");
                 shutdown(ClientSocket, SD_BOTH);
-                SocketToThreadMap[ClientSocket].detach();
-                size_t ClientCount = SocketToThreadMap.size();
-                SocketToThreadMap.erase(ClientSocket);
-                printf("Clients Count updated: new %i, was %i ", SocketToThreadMap.size(), ClientCount);
+                CleanThread(ClientSocket);
                 return;
             }
             else if (bytesnum == -1)
             {
                 if (++counter > 5)
                 {
-                    perror("Client Disconnected with Error");
+                    printf("Client disconbected after few attempts\n");
                     shutdown(ClientSocket, SD_BOTH);
+                    CleanThread(ClientSocket);
                     return;
                 }
             }
@@ -121,7 +120,7 @@ namespace Tcp_lab {
             {
                 printf("recived %i bytes\n", bytesnum);
 
-                //std::lock_guard<std::mutex> guard(Mutex);
+                std::lock_guard<std::mutex> guard(Mutex);
                 /*Broadcasting the sended message*/
                 for (auto SocketToThread = SocketToThreadMap.begin(); SocketToThread != SocketToThreadMap.end(); SocketToThread++)
                 {

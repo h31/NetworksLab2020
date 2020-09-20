@@ -96,9 +96,9 @@ namespace Tcp_lab {
             {
                 Desearilize(buffer, &Info, Name, Message);
                 time_t time = static_cast<time_t>(Info.Time);
-                struct tm* tmp = gmtime(&time);
-
-                std::printf("<%i:%i> [%s] : %s\n", tmp->tm_hour, tmp->tm_min, Name, Message);
+                struct tm* exactTime = std::localtime(&time);
+                
+                std::printf("<%i:%i> [%s] : %s\n", exactTime->tm_hour, exactTime->tm_min, Name, Message);
             }
         }
     }
@@ -148,6 +148,12 @@ namespace Tcp_lab {
             }
         }
     }
+
+    void Client::PrintDebug()
+    {
+        printf("Name Length %i\n", this->Name.length());
+        printf("Struct size %i\n", sizeof(MessageInfo));
+    }
 }
 
 int main(int argc, char* argv[])
@@ -167,7 +173,7 @@ int main(int argc, char* argv[])
         TCHAR WideCharPtr[MessageMaxSize]; //buffer in wide char
         unsigned long readedBytes = 0; //size of readed bytes
         ReadConsole(Client.StdinHandle, WideCharPtr, NameMaxSize, &readedBytes, NULL);
-        size_t requiredBytesNum = WideCharToMultiByte(CP_UTF8, 0, WideCharPtr, readedBytes - 1, CharPtr, sizeof(NameMaxSize), NULL, NULL);
+        size_t requiredBytesNum = WideCharToMultiByte(CP_UTF8, 0, WideCharPtr, readedBytes, CharPtr, sizeof(NameMaxSize), NULL, NULL);
         //WideCharToMultiByte(CP_UTF8, 0, WideCharPtr, readedBytes - 1, CharPtr, requiredBytesNum, NULL, NULL);
         Client.SetNickname(CharPtr);
     }
@@ -175,6 +181,7 @@ int main(int argc, char* argv[])
     bool isInitialized = false;
     if (argc < 3)
     {
+        Client.PrintDebug();
         fprintf(stderr, "usage: %s hostname port nickname(not necessarily)\n", argv[0]);
         isInitialized = Client.Initialize("127.0.0.1", "5001");
     }
