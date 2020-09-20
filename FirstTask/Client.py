@@ -20,24 +20,32 @@ message_validator = MessageValidator()
 
 
 def main():
+    connected = False
+
+    print('Welcome to the Chat Room! For exit print "exit"')
     user_name = input('Please pick a username:')
 
     server_socket = CustomSocket()
-    server_socket.connect(HOST, PORT)
+    print("Connecting to server...")
+    while not connected:
+        try:
+            server_socket.connect(HOST, PORT)
+            print("Connected. You can start chatting!")
+            connected = True
+        except ConnectionRefusedError:
+            pass
 
     def _receive_msg():
         while True:
             try:
                 data_header = server_socket.receive_bytes_num(HEADER_LENGTH)
                 if not data_header:
-                    print('No more data from the server')
-                    server_socket.close()  # shutdown write, get 0 on the server, close socket on the server, then close this connection
+                    server_socket.close()
                     return False
                 data_length = int(data_header.decode('utf-8').strip())
                 data = pickle.loads(server_socket.receive_bytes_num(data_length))
                 _print_msg(data)
-            except ConnectionResetError as ex:
-                logging.error(ex)
+            except ConnectionResetError:
                 server_socket.close()
                 return False
             except Exception as ex:
@@ -47,17 +55,18 @@ def main():
 
     def _send_msg():
         while True:
-            try:
-                msg, msg_len = _build_msg(input())
-                server_socket.send_bytes_num(msg, msg_len)
-            except EOFError as ex:
-                logging.error(ex)
-                server_socket.close()
+            msg, msg_len = _build_msg(input())
+            if threading.active_count() < 3:
                 return False
+            server_socket.send_bytes_num(msg, msg_len)
 
     def _build_msg(input_msg):
         while not input_msg:
             input_msg = input()
+        if input_msg == 'exit':
+            if not server_socket.is_closed():
+                server_socket.shutdown()
+            return False, False
         msg = {'name': user_name, 'time_sent': datetime.now(UTC), 'content': input_msg}
         msg = pickle.dumps(msg)
         msg_len = len(msg)
@@ -66,8 +75,8 @@ def main():
 
     def _print_msg(msg):
         if not message_validator.check(msg):
-            print('Message is not correct')
-            server_socket.close()  # shutdown write, get 0 on the server, close socket on the server, then close this connection
+            print('Message from the server is not correct')
+            server_socket.close()
             return False
         msg_user_name = msg['name']
         msg_time_sent = (msg['time_sent'] + timedelta(0, utc_offset)).strftime('%H:%M')
@@ -77,15 +86,16 @@ def main():
               colored(msg_time_sent, 'blue'),
               colored(msg_content, 'cyan'))
 
-    threading.Thread(target=_receive_msg).start()
-    threading.Thread(target=_send_msg).start()
+    receive_thread = threading.Thread(target=_receive_msg)
+    receive_thread.daemon = True
+    receive_thread.start()
+    send_thread = threading.Thread(target=_send_msg)
+    send_thread.start()
 
     while True:
-        try:
-            pass
-        except KeyboardInterrupt as e:
-            logging.error(e)
-            server_socket.close()
+        if threading.active_count() < 3:
+            if send_thread.is_alive():
+                print('Closing Time. Type something to exit!')
             return False
 
 

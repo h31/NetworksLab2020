@@ -27,11 +27,17 @@ class CustomSocket:
     def close(self):
         self.sock.close()
 
+    def shutdown(self):
+        self.sock.shutdown(socket.SHUT_WR)
+
     def send(self, num):
         self.sock.send(num)
 
     def recv(self, num):
         self.sock.recv(num)
+
+    def is_closed(self):
+        return True if self.sock.fileno() == -1 else False
 
     def send_bytes_num(self, msg, msg_len):
         total_sent = 0
@@ -49,7 +55,7 @@ class CustomSocket:
         while bytes_received < number:
             chunk = current_socket.recv(number - bytes_received)
             if chunk == b'':
-                raise RuntimeError('socket connection broken')
+                return False
             chunks.append(chunk)
             bytes_received = bytes_received + len(chunk)
         return b''.join(chunks)

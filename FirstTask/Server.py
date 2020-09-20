@@ -42,23 +42,25 @@ def main():
                 data_header, data = _receive_data(user)
 
                 if not data_header or not data or connecting:
-                    print('No more data from the client')
-                    connections[user].close()
-                    break
+                    _close_user_connection(user)
+                    return False
 
                 if not message_validator.check(data):
                     print('Message is not correct')
-                    connections[user].close()  # shutdown write, get 0 on the server, close socket on the server, then close this connection
+                    connections[user].close()
                     return False
 
                 for each in range(len(connections)):
                     connections[each].send(data_header + pickle.dumps(data))
             except ConnectionResetError as ex:
                 logging.error(ex)
-                connections[user].close()
-                print(f'user n.{user + 1} has been disconnected')
-                connections.remove(connections[user])
+                _close_user_connection(user)
                 return False
+
+    def _close_user_connection(user):
+        connections[user].close()
+        print(f'user n.{user + 1} has been disconnected')
+        connections.remove(connections[user])
 
     def _receive_data(user):
         data_header = server_socket.receive_bytes_num(HEADER_LENGTH, connections[user])
