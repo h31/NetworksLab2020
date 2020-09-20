@@ -60,9 +60,11 @@ namespace Tcp_lab {
         return true;
     }
 
-    void Client::SetNickname(PCSTR nickname)
+    void Client::SetNickname(LPCWCH nickname, unsigned long readedBytes)
     {
-       Name = std::string(nickname);
+       bzero(Name, NameMaxSize * sizeof(wchar_t));
+       size_t requiredBytesNum = WideCharToMultiByte(CP_UTF8, 0, nickname, readedBytes, Name, NameMaxSize, NULL, NULL);
+       Name[requiredBytesNum] = '\0';
     }
 
     void Client::RecieverRun()
@@ -126,13 +128,13 @@ namespace Tcp_lab {
 
                 if (strlen(MessageBuf) > MessageMaxSize - 1)
                 {
-                    Serialize(buff, Name.c_str(), MessageBuf, Name.length(), MessageMaxSize - 2);
-                    TotalSize = sizeof(uint16_t) + Name.length() + MessageMaxSize + sizeof(MessageInfo);
+                    Serialize(buff, Name, MessageBuf, strlen(Name), MessageMaxSize - 2);
+                    TotalSize = sizeof(uint16_t) + strlen(Name) + MessageMaxSize + sizeof(MessageInfo);
                 }
                 else
                 {
-                    Serialize(buff, Name.c_str(), MessageBuf, Name.length(), strlen(MessageBuf) - 1);
-                    TotalSize = sizeof(uint16_t) + Name.length() + strlen(MessageBuf) + sizeof(MessageInfo);
+                    Serialize(buff, Name, MessageBuf, strlen(Name), strlen(MessageBuf) - 1);
+                    TotalSize = sizeof(uint16_t) + strlen(Name) + strlen(MessageBuf) + sizeof(MessageInfo);
                 }
             }
 
@@ -151,9 +153,14 @@ namespace Tcp_lab {
 
     void Client::PrintDebug()
     {
-        printf("Name Length %i\n", this->Name.length());
+        printf("Name Length %i\n", strlen(Name));
         printf("Struct size %i\n", sizeof(MessageInfo));
     }
+}
+
+inline bool IsEven(size_t First, size_t Second)
+{
+    return (First / Second) & 1;
 }
 
 int main(int argc, char* argv[])
@@ -162,27 +169,21 @@ int main(int argc, char* argv[])
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
     
-    //if it present in console as arg
-    if (argc == 4)
     {
-        Client.SetNickname(argv[3]);
-    }
-    else
-    {
-        CHAR CharPtr[WideMessageMaxSize]; //buffer in simple char
         TCHAR WideCharPtr[MessageMaxSize]; //buffer in wide char
         unsigned long readedBytes = 0; //size of readed bytes
         ReadConsole(Client.StdinHandle, WideCharPtr, NameMaxSize, &readedBytes, NULL);
-        size_t requiredBytesNum = WideCharToMultiByte(CP_UTF8, 0, WideCharPtr, readedBytes, CharPtr, sizeof(NameMaxSize), NULL, NULL);
-        //WideCharToMultiByte(CP_UTF8, 0, WideCharPtr, readedBytes - 1, CharPtr, requiredBytesNum, NULL, NULL);
-        Client.SetNickname(CharPtr);
+        //WideCharPtr[readedBytes / sizeof(wchar_t) + 1] = L'\0';
+        Client.SetNickname(WideCharPtr, readedBytes - 2);
     }
 
     bool isInitialized = false;
     if (argc < 3)
     {
+#ifdef CLIENT_DEBUG
         Client.PrintDebug();
-        fprintf(stderr, "usage: %s hostname port nickname(not necessarily)\n", argv[0]);
+#endif
+        fprintf(stderr, "usage: %s hostname port if want to not local addr\n", argv[0]);
         isInitialized = Client.Initialize("127.0.0.1", "5001");
     }
     else

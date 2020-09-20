@@ -151,7 +151,7 @@ project "Client"
 		}
 
 	filter "configurations:Debug"
-		defines ""
+		defines "CLIENT_DEBUG"
 		runtime "Debug"
 		symbols "on"
 

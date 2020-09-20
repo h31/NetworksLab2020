@@ -110,7 +110,7 @@ namespace Tcp_lab {
             {
                 if (++counter > 5)
                 {
-                    printf("Client disconbected after few attempts\n");
+                    printf("Client disconnected after few attempts\n");
                     shutdown(ClientSocket, SD_BOTH);
                     CleanThread(ClientSocket);
                     return;

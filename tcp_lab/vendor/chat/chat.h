@@ -145,7 +145,9 @@ namespace Tcp_lab {
 		uint32_t CheckNumber = 1u;
 		if (!(CheckNumber & SendedEndiassNum))
 		{
+#ifdef CLIENT_DEBUG
 			printf("Machine End: %i - Sended End: %i\n", CheckNumber, SendedEndiassNum);
+#endif
 			//Endiass decoding x0001 - little endian, x1000 - big endian
 			if (CheckNumber) //little endiand
 			{

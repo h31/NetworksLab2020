@@ -13,7 +13,7 @@ namespace Tcp_lab {
 
 		//PCSTR - Pointer Const Not Wide String
 		bool Initialize(PCSTR NodeName, PCSTR ServiceName);
-		inline void SetNickname(PCSTR nickname);
+		inline void SetNickname(LPCWCH nickname, unsigned long readedBytes);
 
 		void SenderRun();
 		void RecieverRun();
@@ -26,7 +26,7 @@ namespace Tcp_lab {
 
 	private:
 		bool IsRunning = true;
-		std::string Name;
+		char Name[NameMaxSize * sizeof(wchar_t)];
 		SOCKET SocketFd;
 	};
 }
