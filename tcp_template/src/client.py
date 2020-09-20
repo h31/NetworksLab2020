@@ -9,7 +9,7 @@ class ThreadReceive(threading.Thread):
 
     def run(self):
         while True:
-            data = self.ssocket.recv(1024).decode('utf-8')
+            data = self.ssocket.recv(1024).decode('UTF-8')
             print(data)
             if data == b'':
                 break
@@ -19,6 +19,8 @@ SERVER = "127.0.0.1"
 PORT = 5001
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((SERVER, PORT))
+login = input("Enter your login: ")
+client.send(bytes(login, 'UTF-8'))
 while True:
     thread_receive = ThreadReceive(client)
     thread_receive.start()

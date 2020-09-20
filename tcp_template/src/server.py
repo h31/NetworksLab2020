@@ -4,13 +4,23 @@ import threading
 all_sock = {}
 data = ""
 socket_from = socket
+client_login = ""
+names = {}
+
+
+def to_bytes(text):
+    text_bytes = bytes(text, 'UTF-8')
+    return text_bytes
 
 
 def sending_to_all(msg, sock):
     global all_sock
+    global names
+    global socket_from
     for a in all_sock.keys():
         if all_sock[a] != sock:
-            all_sock[a].send(msg)
+            login_bytes = to_bytes("[" + names[socket_from] + "]" + ":")
+            all_sock[a].send(login_bytes+msg)
 
 
 class ThreadReceive(threading.Thread):
@@ -20,17 +30,20 @@ class ThreadReceive(threading.Thread):
 
     def run(self):
         global all_sock
-        all_sock[client_address] = clientsock
+        all_sock[client_address] = client_sock
         global data
         global socket_from
-        self.csocket.send("Hello from Letta".encode('UTF-8'))
+        global client_login
+        global names
+        #self.csocket.send("Hello from Letta".encode('UTF-8'))
+        client_login = self.csocket.recv(1024).decode('UTF-8')
+        names[self.csocket] = client_login
         while True:
-            data = self.csocket.recv(1024).decode('utf-8')
+            data = self.csocket.recv(1024).decode('UTF-8')
             socket_from = self.csocket
             if data == b'':
                 break
-            print("from client", data)
-            print("address", socket_from)
+            print("message from client", data)
         # print("Client at ", client_address, "disconnected...")
 
 
@@ -42,10 +55,11 @@ class ThreadSend(threading.Thread):
         while True:
             global data
             global socket_from
+            global client_login
             if data != '':
-                sending_to_all(bytes(data, 'UTF-8'), socket_from)
+                #sending_to_all(bytes(data, 'UTF-8'), socket_from)
+                sending_to_all(to_bytes(data), socket_from)
                 data = ""
-
 
 
 if __name__ == '__main__':
@@ -59,7 +73,7 @@ if __name__ == '__main__':
     thread_send = ThreadSend()
     thread_send.start()
     while True:
-        clientsock, client_address = server.accept()
-        thread_receive = ThreadReceive(client_address, clientsock)
+        client_sock, client_address = server.accept()
+        thread_receive = ThreadReceive(client_address, client_sock)
         thread_receive.start()
 
