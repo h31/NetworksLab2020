@@ -20,7 +20,7 @@ def main():
     server_socket.listen(USERS_EXPECTED_NUMBER)
     print('Listening for connections...')
 
-    connections = []
+    connections = {}
     connecting = False
 
     def _connect_users():
@@ -29,10 +29,10 @@ def main():
             conn, addr = server_socket.accept()
 
             if conn not in connections:
-                connections.append(conn)
-                threading.Thread(target=_send_data, args=(len(connections) - 1,)).start()
+                connections[addr] = conn
+                threading.Thread(target=_send_data, args=(addr,)).start()
             connecting = True
-            print(f'user n.{len(connections)} with address {addr} is connected')
+            print(f'user with address {addr} is connected')
             connecting = False
             threading.Thread(target=_connect_users).start()
 
@@ -50,8 +50,8 @@ def main():
                     connections[user].close()
                     return False
 
-                for each in range(len(connections)):
-                    connections[each].send(data_header + pickle.dumps(data))
+                for each in connections.values():
+                    each.send(data_header + pickle.dumps(data))
             except ConnectionResetError as ex:
                 logging.error(ex)
                 _close_user_connection(user)
@@ -59,8 +59,8 @@ def main():
 
     def _close_user_connection(user):
         connections[user].close()
-        print(f'user n.{user + 1} has been disconnected')
-        connections.remove(connections[user])
+        print(f'user with address {user} has been disconnected')
+        del connections[user]
 
     def _receive_data(user):
         data_header = server_socket.receive_bytes_num(HEADER_LENGTH, connections[user])
