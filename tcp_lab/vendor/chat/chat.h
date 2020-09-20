@@ -65,19 +65,10 @@
 
 #endif
 
-/*
-* Структура заголовка данных
-* uint8_t  
-*
-*
-*
-*/
-
 //without padding
 #pragma pack(1)
 struct MessageInfo
 {
-	//uint32_t EndiassNumber = 1u; // check endiass if 1 in the most left bit it's 
 	uint16_t NameSize; //size of name string
 	uint32_t MessageSize; // size of message string
 	uint64_t Time; // time when message was sended
