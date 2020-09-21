@@ -14,12 +14,18 @@ class ReceiveMessageThread(Thread):
     def run(self):
         global server_shutdown
         while not server_shutdown:
-            data = self.socket.recv(2048)
-            if data == b'':
+            try:
+                data = self.socket.recv(2048)
+                if data == b'':
+                    server_shutdown = True
+                    break
+                message = data.decode('utf-8')
+                print(message)
+            except OSError:
+                print('Клиент закрыт')
                 server_shutdown = True
                 break
-            message = data.decode('utf-8')
-            print(message)
+
 
 
 def main():
@@ -32,11 +38,15 @@ def main():
     sock.send(nickname.encode('utf-8'))
     receive_message_thread = ReceiveMessageThread(sock)
     receive_message_thread.start()
-    while not server_shutdown:
+    while True:
         message = input()
-        sock.send(message.encode('utf-8'))
         if message == 'exit()':
             server_shutdown = True
+            break
+        try:
+            sock.send(message.encode('utf-8'))
+        except OSError:
+            print('Сервер закрыл соединение')
             break
     sock.shutdown(socket.SHUT_WR)
     sock.close()

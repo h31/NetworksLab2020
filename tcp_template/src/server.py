@@ -32,8 +32,6 @@ def delete_client(client_address, client_socket: socket):
     del clients[client_address]
     client_socket.close()
     print('Отключен:', client_address)
-    if not clients:
-        end_sending = True
 
 
 class ReceiveThread(Thread):
@@ -49,7 +47,7 @@ class ReceiveThread(Thread):
                 break
             message = data.decode('utf-8')
             print(message)
-            if message == 'exit()':
+            if message == 'exit()' or end_sending:
                 break
             add_to_messages(message, self.client_address)
         delete_client(self.client_address, self.socket)
@@ -73,15 +71,25 @@ class AcceptThread(Thread):
         self.server_socket = server_socket
 
     def run(self):
+        # hello = 'Добро пожаловать в чат!'
+        # length_hello = str(len(hello)).encode('utf-8')
+        # hello_encode = hello.encode('utf-8')
         while True:
-            conn, addr = self.server_socket.accept()
-            print('Подключен:', addr)
-            name = conn.recv(2048).decode('utf-8')
-            add_to_clients(addr, conn, name)
-            rt = ReceiveThread(conn, addr)
-            rt.start()
-            if end_sending:
-                break
+            try:
+                conn, addr = self.server_socket.accept()
+                print('Подключен:', addr)
+                # conn.send(length_hello)
+                # conn.send(hello_encode)
+                # length = conn.recv(8).decode('utf-8')  # длина
+                name = conn.recv(2048).decode('utf-8')
+                add_to_clients(addr, conn, name)
+                rt = ReceiveThread(conn, addr)
+                rt.start()
+            except OSError:
+                print('Нет возможности принять новое подключение')
+            finally:
+                if end_sending:
+                    break
 
 
 def main():
@@ -94,8 +102,16 @@ def main():
     sending_message_thread = SendThread()
     sending_message_thread.start()
     while True:
-        if end_sending:
-            break
+        command = input()
+        if command == 'exit':
+            try:
+                sock.shutdown(socket.SHUT_WR)
+            except OSError:
+                print('Были подключенные клиенты/запрос на прием или отправку данных')
+            finally:
+                break
+    global end_sending
+    end_sending = True
     sock.close()
     print('Close server')
 
