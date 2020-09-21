@@ -29,11 +29,12 @@ def main():
     nickname = '[' + input('Введите ваше имя ') + ']:'
     sock = socket.socket()
     sock.connect(('localhost', 5001))
+    sock.send(nickname.encode('utf-8'))
     receive_message_thread = ReceiveMessageThread(sock)
     receive_message_thread.start()
     while not server_shutdown:
         message = input()
-        sock.send((nickname + message).encode('utf-8'))
+        sock.send(message.encode('utf-8'))
         if message == 'exit()':
             server_shutdown = True
             break
