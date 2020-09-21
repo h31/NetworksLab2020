@@ -25,5 +25,7 @@ while True:
     thread_receive = ThreadReceive(client)
     thread_receive.start()
     out_data = input()
+    length = len(out_data)
+    client.send(bytes(str(length), 'UTF-8'))
     client.send(bytes(out_data, 'UTF-8'))
 #client.close()
