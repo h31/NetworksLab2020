@@ -6,6 +6,29 @@ clients = {}
 end_sending = False
 
 
+def receive_message(receive_socket: socket):
+    length = int(receive_socket.recv(16).decode('utf-8'))
+    recd = 0
+    chunks = []
+    while recd < length:
+        chunk = receive_socket.recv(length)
+        if chunk == b'':
+            break
+        chunks.append(chunk)
+        recd += len(chunk)
+    return chunks
+
+
+def convert_to_sixteen_bytes(name: str):
+    length_list = []
+    length_name = str(len(name))
+    for i in length_name:
+        length_list.append(i)
+    while len(length_list) < 16:
+        length_list.insert(0, '0')
+    return ''.join(length_list)
+
+
 def add_to_messages(msg: str, addr):
     global messages
     messages.append((msg, addr))
@@ -21,10 +44,12 @@ def send_message():
     global clients
     if messages:
         address_from = messages[0][1]
-        msg = (clients[address_from][1] + messages.pop(0)[0]).encode('utf-8')
+        msg = clients[address_from][1] + messages.pop(0)[0]
+        length = convert_to_sixteen_bytes(msg)
         for client in clients.keys():
             if client != address_from:
-                clients[client][0].send(msg)
+                clients[client][0].send(length.encode('utf-8'))
+                clients[client][0].send(msg.encode('utf-8'))
 
 
 def delete_client(client_address, client_socket: socket):
@@ -42,14 +67,17 @@ class ReceiveThread(Thread):
 
     def run(self):
         while True:
-            data = self.socket.recv(2048)
-            if data == b'':
+            try:
+                chunks = receive_message(self.socket)
+            except OSError:
+                print('Разорвано соединение с клиентом')
                 break
-            message = data.decode('utf-8')
-            print(message)
-            if message == 'exit()' or end_sending:
-                break
-            add_to_messages(message, self.client_address)
+            else:
+                message = b''.join(chunks).decode('utf-8')
+                print(message)
+                if message == 'exit()' or end_sending:
+                    break
+                add_to_messages(message, self.client_address)
         delete_client(self.client_address, self.socket)
 
 
@@ -62,7 +90,10 @@ class SendThread(Thread):
         while True:
             if end_sending:
                 break
-            send_message()
+            try:
+                send_message()
+            except OSError:
+                print('Нет возможности отправить данные клиентам')
 
 
 class AcceptThread(Thread):
@@ -71,22 +102,18 @@ class AcceptThread(Thread):
         self.server_socket = server_socket
 
     def run(self):
-        # hello = 'Добро пожаловать в чат!'
-        # length_hello = str(len(hello)).encode('utf-8')
-        # hello_encode = hello.encode('utf-8')
         while True:
             try:
                 conn, addr = self.server_socket.accept()
                 print('Подключен:', addr)
-                # conn.send(length_hello)
-                # conn.send(hello_encode)
-                # length = conn.recv(8).decode('utf-8')  # длина
-                name = conn.recv(2048).decode('utf-8')
+                chunks = receive_message(conn)
+            except OSError:
+                print('Нет возможности принять новое подключение')
+            else:
+                name = b''.join(chunks).decode('utf-8')
                 add_to_clients(addr, conn, name)
                 rt = ReceiveThread(conn, addr)
                 rt.start()
-            except OSError:
-                print('Нет возможности принять новое подключение')
             finally:
                 if end_sending:
                     break
