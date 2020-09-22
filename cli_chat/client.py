@@ -29,11 +29,11 @@ TIME_LENGTH = 8
 
 input_username = input("Enter username: ")
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect((IP, PORT))
 
 username = input_username.encode(CODE)
 username_header = f"{len(username):<{HEADER_LENGTH}}".encode(CODE)
 
+client_socket.connect((IP, PORT))
 client_socket.send(username_header + username)
 
 
@@ -74,8 +74,5 @@ def receive():
 			sys.exit()
 
 
-receive_thread = threading.Thread(target=receive)
-receive_thread.start()		
-
-write_thread = threading.Thread(target=write)
-write_thread.start()	
+receive_thread = threading.Thread(target=receive).start()
+write_thread = threading.Thread(target=write).start()
