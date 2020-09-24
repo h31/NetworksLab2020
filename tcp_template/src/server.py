@@ -53,7 +53,6 @@ def send_message():
 
 
 def delete_client(client_address, client_socket: socket):
-    global end_sending
     del clients[client_address]
     client_socket.close()
     print('Отключен:', client_address)
@@ -102,6 +101,7 @@ class AcceptThread(Thread):
         self.server_socket = server_socket
 
     def run(self):
+        global end_sending
         while True:
             try:
                 conn, addr = self.server_socket.accept()
