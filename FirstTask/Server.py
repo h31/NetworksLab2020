@@ -1,16 +1,12 @@
 import logging
-import pickle
 import threading
 
 from FirstTask.CustomSocket import CustomSocket
-from FirstTask.MessageValidator import MessageValidator
 
 HOST = '127.0.0.1'
 PORT = 8080
 HEADER_LENGTH = 10
 USERS_EXPECTED_NUMBER = 10
-
-message_validator = MessageValidator()
 
 
 def main():
@@ -18,7 +14,7 @@ def main():
     server_socket.setsockopt()
     server_socket.bind(HOST, PORT)
     server_socket.listen(USERS_EXPECTED_NUMBER)
-    print('Listening for connections...')
+    print('Waiting for users...')
 
     connections = {}
     connecting = False
@@ -45,13 +41,9 @@ def main():
                     _close_user_connection(user)
                     return False
 
-                if not message_validator.check(data):
-                    print('Message is not correct')
-                    connections[user].close()
-                    return False
-
                 for each in connections.values():
-                    each.send(data_header + pickle.dumps(data))
+                    data_for_each = b'\0'.join([bytes(d, 'utf-8') for d in data])
+                    each.send(data_header + data_for_each)
             except ConnectionResetError as ex:
                 logging.error(ex)
                 _close_user_connection(user)
@@ -66,8 +58,13 @@ def main():
         data_header = server_socket.receive_bytes_num(HEADER_LENGTH, connections[user])
         if not data_header:
             return False, False
-        data_length = int(data_header.decode('utf-8').strip())
-        data = pickle.loads(server_socket.receive_bytes_num(data_length, connections[user]))
+        data_length = int(data_header.decode().strip())
+        data = server_socket.receive_bytes_num(data_length, connections[user])
+        data = [d.decode() for d in data.split(b'\0')]
+        if len(data) != 3:
+            print('Message is not correct')
+            connections[user].close()
+            return False
         return data_header, data
 
     threading.Thread(target=_connect_users).start()

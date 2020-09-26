@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta, timezone
 import logging
-import pickle
 import pytz
 import threading
 from termcolor import colored
 
 from FirstTask.CustomSocket import CustomSocket
-from FirstTask.MessageValidator import MessageValidator
 
 HOST = '127.0.0.1'
 PORT = 8080
@@ -15,8 +13,6 @@ HEADER_LENGTH = 10
 UTC = pytz.utc
 local_timezone = datetime.now(timezone.utc).astimezone()
 utc_offset = local_timezone.utcoffset() // timedelta(seconds=1)
-
-message_validator = MessageValidator()
 
 
 def main():
@@ -42,8 +38,8 @@ def main():
                 if not data_header:
                     server_socket.close()
                     return False
-                data_length = int(data_header.decode('utf-8').strip())
-                data = pickle.loads(server_socket.receive_bytes_num(data_length))
+                data_length = int(data_header.decode().strip())
+                data = server_socket.receive_bytes_num(data_length)
                 _print_msg(data)
             except ConnectionResetError:
                 server_socket.close()
@@ -67,20 +63,32 @@ def main():
             if not server_socket.is_closed():
                 server_socket.shutdown()
             return False, False
-        msg = {'name': user_name, 'time_sent': datetime.now(UTC), 'content': input_msg}
-        msg = pickle.dumps(msg)
+        msg = _encode_msg(input_msg)
         msg_len = len(msg)
         msg = bytes(f"{msg_len:<{HEADER_LENGTH}}", 'utf-8') + msg
         return msg, msg_len
 
-    def _print_msg(msg):
-        if not message_validator.check(msg):
+    def _encode_msg(input_msg):
+        _user_name = bytes(user_name, 'utf-8')
+        _send_date = bytes(datetime.now(UTC).strftime('%Y/%m/%d/%H/%M'), 'utf-8')
+        _input_msg = bytes(input_msg, 'utf-8')
+        return b'\0'.join([_user_name, _send_date, _input_msg])
+
+    def _decode_msg(msg):
+        msg = [m.decode() for m in msg.split(b'\0')]
+        try:
+            msg_user_name = msg[0]
+            msg_time_sent = datetime.strptime(msg[1], '%Y/%m/%d/%H/%M')
+            msg_time_sent = (msg_time_sent + timedelta(0, utc_offset)).strftime('%H:%M')
+            msg_content = msg[2]
+            return msg_user_name, msg_time_sent, msg_content
+        except ValueError or IndexError:
             print('Message from the server is not correct')
             server_socket.close()
             return False
-        msg_user_name = msg['name']
-        msg_time_sent = (msg['time_sent'] + timedelta(0, utc_offset)).strftime('%H:%M')
-        msg_content = msg['content']
+
+    def _print_msg(msg):
+        msg_user_name, msg_time_sent, msg_content = _decode_msg(msg)
         user_name_color = 'magenta' if (msg_user_name != user_name) else 'yellow'
         print(colored(msg_user_name, user_name_color, attrs=['bold']),
               colored(msg_time_sent, 'blue'),
