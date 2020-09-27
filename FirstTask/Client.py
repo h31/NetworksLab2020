@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import logging
 import pytz
+import select
 import threading
 from termcolor import colored
 
@@ -9,6 +10,10 @@ from FirstTask.CustomSocket import CustomSocket
 HOST = '127.0.0.1'
 PORT = 8080
 HEADER_LENGTH = 10
+
+TIMEOUT = 1000
+READ_ONLY = select.POLLIN | select.POLLPRI | select.POLLHUP | select.POLLERR
+READ_WRITE = READ_ONLY | select.POLLOUT
 
 UTC = pytz.utc
 local_timezone = datetime.now(timezone.utc).astimezone()
@@ -30,37 +35,47 @@ def main():
             connected = True
         except ConnectionRefusedError:
             pass
+    poller = select.poll()
+    poller.register(server_socket.get_socket(), READ_WRITE)
+
+    def _close_connection():
+        poller.unregister(server_socket.get_socket())
+        server_socket.close()
 
     def _receive_msg():
-        while True:
-            try:
-                data_header = server_socket.receive_bytes_num(HEADER_LENGTH)
-                if not data_header:
-                    server_socket.close()
-                    return False
-                data_length = int(data_header.decode().strip())
-                data = server_socket.receive_bytes_num(data_length)
-                _print_msg(data)
-            except ConnectionResetError:
-                server_socket.close()
-                return False
-            except Exception as ex:
-                logging.error(ex)
-                server_socket.close()
-                return False
+        nonlocal connected
+        if not connected:
+            return
+        try:
+            data_header = server_socket.receive_bytes_num(HEADER_LENGTH)
+            if not data_header:
+                connected = False
+                if send_thread.is_alive():
+                    print("Server has disconnected. Type something to exit.")
+                _close_connection()
+                return
+            data_length = int(data_header.decode().strip())
+            data = server_socket.receive_bytes_num(data_length)
+            _print_msg(data)
+        except ConnectionResetError as ex:
+            logging.error(ex)
+            _close_connection()
+            return False
 
     def _send_msg():
-        while True:
-            msg, msg_len = _build_msg(input())
-            if threading.active_count() < 3:
-                return False
-            server_socket.send_bytes_num(msg, msg_len)
+        nonlocal connected
+        msg, msg_len = _build_msg(input())
+        if not connected:
+            return False
+        server_socket.send_bytes_num(msg, msg_len)
 
     def _build_msg(input_msg):
+        nonlocal connected
         while not input_msg:
             input_msg = input()
         if input_msg == 'exit':
             if not server_socket.is_closed():
+                poller.modify(server_socket.get_socket(), READ_ONLY)
                 server_socket.shutdown()
             return False, False
         msg = _encode_msg(input_msg)
@@ -84,7 +99,7 @@ def main():
             return msg_user_name, msg_time_sent, msg_content
         except ValueError or IndexError:
             print('Message from the server is not correct')
-            server_socket.close()
+            _close_connection()
             return False
 
     def _print_msg(msg):
@@ -96,15 +111,27 @@ def main():
 
     receive_thread = threading.Thread(target=_receive_msg)
     receive_thread.daemon = True
-    receive_thread.start()
     send_thread = threading.Thread(target=_send_msg)
-    send_thread.start()
 
     while True:
-        if threading.active_count() < 3:
-            if send_thread.is_alive():
-                print('Closing Time. Type something to exit!')
+        events = poller.poll(TIMEOUT)
+
+        if not connected:
             return False
+
+        for fd, flag in events:
+            if flag & (select.POLLIN | select.POLLPRI):
+                if not receive_thread.is_alive():
+                    receive_thread = threading.Thread(target=_receive_msg)
+                    receive_thread.daemon = True
+                    receive_thread.start()
+            elif flag & select.POLLOUT:
+                if not send_thread.is_alive():
+                    send_thread = threading.Thread(target=_send_msg)
+                    send_thread.start()
+            if flag & select.POLLERR:
+                logging.error('Error occurred while polling')
+                _close_connection()
 
 
 if __name__ == "__main__":

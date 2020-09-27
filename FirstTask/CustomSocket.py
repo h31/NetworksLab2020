@@ -15,6 +15,9 @@ class CustomSocket:
     def setsockopt(self):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+    def set_blocking(self, to_be_blocked):
+        self.sock.setblocking(to_be_blocked)
+
     def bind(self, host, port):
         self.sock.bind((host, port))
 
