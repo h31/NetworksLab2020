@@ -3,6 +3,9 @@ import errno
 import sys
 import threading
 import json
+import time
+import datetime
+import signal
 
 #Load config file
 try:
@@ -25,54 +28,72 @@ PORT = settings["port"]
 CODE = settings["code"]
 
 HEADER_LENGTH = 8
-TIME_LENGTH = 8
-
-input_username = input("Enter username: ")
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-username = input_username.encode(CODE)
-username_header = f"{len(username):<{HEADER_LENGTH}}".encode(CODE)
-
-client_socket.connect((IP, PORT))
-client_socket.send(username_header + username)
 
 
-def write():
-	while True:
-		message = input()
+def client():
+	input_username = input("Enter username: ")
+	client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-		if message:
-			message = message.encode(CODE)
-			message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
-			client_socket.send(message_header + message)
+	username = input_username.encode(CODE)
+	username_header = f"{len(username):<{HEADER_LENGTH}}".encode(CODE)
+
+	client_socket.connect((IP, PORT))
+	client_socket.send(username_header + username)
+
+	receive_thread = threading.Thread(target=read, args=(client_socket, )).start()
+	write_thread = threading.Thread(target=write, args=(client_socket, )).start()
 
 
-def receive():
+def write(client_socket):
 	while True:
 		try:
-			username_header = client_socket.recv(HEADER_LENGTH)
+			message = input()
 
-			if not len(username_header):
-				print("Connection closed by server")
+			if message == '!q':
 				sys.exit()
+				client_socket.shutdown(socket.SHUT_RDWR)
+				client_socket.close()	
+				return
 
-			username_length = int(username_header.decode(CODE).strip())
-			username = client_socket.recv(username_length).decode(CODE)
+			if message:
+				message = message.encode(CODE)
+				message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
+				client_socket.send(message_header + message)
 
-			message_header = client_socket.recv(HEADER_LENGTH)
-			message_length = int(message_header.decode(CODE).strip())
+		except EOFError as e:
+			continue
 
-			message = client_socket.recv(message_length).decode(CODE)
+		except:
+			client_socket.shutdown(socket.SHUT_RDWR)
+			client_socket.close()
+			sys.exit()
+			continue
+			
 
-			time = client_socket.recv(TIME_LENGTH).decode(CODE)
+def receive(client_socket):
 
-			print(f'<{time}> [{username}]: {message}')
+	header = client_socket.recv(HEADER_LENGTH)
 
+	if not len(header):
+		print("Connection closed by server")
+		sys.exit()
+
+	length = int(header.decode(CODE).strip())
+	return client_socket.recv(length).decode(CODE)
+
+
+def read(client_socket):
+	while True:
+		try:
+			username = receive(client_socket)
+			message = receive(client_socket)
+			recv_time = receive(client_socket)
+
+			client_time = time.strftime("%H:%M:%S", (time.localtime(int(recv_time))))
+			print(f'<{client_time}> [{username}]: {message}')
 
 		except Exception as e:
 			print('Error', str(e))
 			sys.exit()
 
-
-receive_thread = threading.Thread(target=receive).start()
-write_thread = threading.Thread(target=write).start()
+client()
