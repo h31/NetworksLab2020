@@ -10,6 +10,7 @@ namespace Tcp_lab {
 
     Client::~Client()
     {
+        shutdown(SocketFd, SD_RECEIVE);
         closesocket(SocketFd);
         //Cleanup winsock
         WSACleanup();
@@ -57,6 +58,10 @@ namespace Tcp_lab {
         printf("client: connecting to %s\n", ServInfoBuffer);
 
         freeaddrinfo(ServInfo); // all done with this structure
+
+        u_long mode = 1;  // 1 to enable non-blocking socket
+        //ioctlsocket(SocketFd, FIONBIO, &mode);
+
         return true;
     }
 

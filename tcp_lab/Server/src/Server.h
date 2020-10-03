@@ -14,17 +14,22 @@ namespace Tcp_lab {
 		Server();
 		~Server();
 
+		//for run from main
 		void Run();
 	private:
-		void ClientRun(SOCKET ClientSocket, struct sockaddr_in ClientAddr, int ClientLen);
-		void CleanThread(SOCKET ClientSocket);
+		//Accept new connections if present
+		const bool AcceptIncomingConnections();
+		//Broadcast getted messages if present
+		const int32_t BroadcastMessages(char* buffer, const int32_t index);
 
 	private:
+		//Socket Info
 		SOCKET             Sockfd;
 		uint16_t           PortNum;
 		struct sockaddr_in ServerAddr;
 
-		std::unordered_map<SOCKET, std::thread> SocketToThreadMap;
-		std::mutex Mutex;
+		//Application properties
+		bool IsRunning = true;
+		std::vector<WSAPOLLFD> ClientsPollInfo;
 	};
 }

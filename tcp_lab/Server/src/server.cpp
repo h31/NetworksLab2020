@@ -5,6 +5,8 @@
 
 namespace Tcp_lab {
 
+#define DEFAULT_CLIENT_COUNT 100
+
     Server::Server()
     {
         InitializeWinSock2();
@@ -30,15 +32,22 @@ namespace Tcp_lab {
             perror("ERROR on binding");
             exit(1);
         }
+
+        ClientsPollInfo.reserve(DEFAULT_CLIENT_COUNT);
+        ClientsPollInfo.push_back(WSAPOLLFD{ Sockfd, POLLIN | POLLOUT, 0 });
+
+        u_long mode = 1;  // 1 to enable non-blocking socket
+        ioctlsocket(Sockfd, FIONBIO, &mode);
     }
 
     Server::~Server()
     {
         //close all connections
-        for (auto SocketToThread = SocketToThreadMap.begin(); SocketToThread != SocketToThreadMap.end(); ++SocketToThread)
+        for (auto PollInfo = ClientsPollInfo.begin(); PollInfo != ClientsPollInfo.end(); ++PollInfo)
         {
-            SOCKET broadcastingSocket = SocketToThread->first;
-            shutdown(broadcastingSocket, SD_BOTH);
+            SOCKET broadcastingSocket = PollInfo->fd;
+            shutdown(broadcastingSocket, SD_RECEIVE);
+            closesocket(broadcastingSocket);
         }
         //close socket
         closesocket(Sockfd);
@@ -51,83 +60,125 @@ namespace Tcp_lab {
         /* Now start listening for the clients, here process will
          * go in sleep mode and will wait for the incoming connection
          */
-        int clilen;
-        SOCKET newsockfd;
-        struct sockaddr_in cli_addr;
+        char buffer[MaxBufferSize];
+        int32_t index = 1;
 
         //Transform state of socket to listening
-        listen(Sockfd, 5); 
-        clilen = sizeof(cli_addr);
+        int answer = listen(Sockfd, 5); 
+        
+        if (answer < 0)
+        {
+            printf("Error on setting to Listening %i \n", WSAGetLastError());
+            closesocket(Sockfd);
+            return;
+        }
 
-        while (true)
+        while (IsRunning)
         {
             /* tracking of incoming connection */
-            newsockfd = accept(Sockfd, (struct sockaddr*)&cli_addr, &clilen);
+            int32_t ClientCount = WSAPoll(&ClientsPollInfo[0], ClientsPollInfo.size(), 1);
 
-            if (newsockfd < 0)
+            if (ClientCount == SOCKET_ERROR) //== -1
             {
-                std::printf("Error on accept: %i", WSAGetLastError());
-                exit(1);
+                //Error
+                std::printf("Error on poll: %i \n", WSAGetLastError());
+            }
+            else if (ClientCount == 0)
+            {
+                //timeout
             }
             else
             {
-                std::lock_guard<std::mutex> guard(Mutex);
-                SocketToThreadMap[newsockfd] = std::thread(&Tcp_lab::Server::ClientRun, this, newsockfd, cli_addr, clilen);
-                std::printf("Client connected: adress [%i] port [%i], New clients count: %i\n", cli_addr.sin_addr, cli_addr.sin_port, SocketToThreadMap.size());
+                //printf("DEBUG %i \n", ClientCount);
+
+                //To validate data between users, firstly need to accept new connections
+                //because incoming messages need to be sended to this users too
+                if (ClientsPollInfo[0].revents & POLLIN)
+                    AcceptIncomingConnections();
+
+                index = 1;
+
+                //processing all in polling
+                for (size_t i = 0; i < ClientCount; i++)
+                {
+                    //Get index of socket when processing is stopped
+                    //if return -1 there is nothing to be processing
+                    int32_t recieving = BroadcastMessages(buffer, index);
+                    if (recieving < 0)
+                    {
+                        std::printf("Error on recieving: %i \n", WSAGetLastError());
+                    }
+                    else
+                    {
+                        index = recieving;
+                    }
+                }
             }
         }
     }
 
-    void Server::CleanThread(SOCKET ClientSocket)
+    const bool Server::AcceptIncomingConnections()
     {
-        std::lock_guard<std::mutex> guard(Mutex);
-        SocketToThreadMap[ClientSocket].detach();
-        size_t ClientCount = SocketToThreadMap.size();
-        SocketToThreadMap.erase(ClientSocket);
-        printf("Clients Count updated: was %i, new %i\n", SocketToThreadMap.size(), ClientCount);
-    }
+        SOCKET newsockfd;
+        int clilen;
+        struct sockaddr_in cli_addr;
+        clilen = sizeof(cli_addr);
 
-    void Server::ClientRun(SOCKET ClientSocket, struct sockaddr_in ClientAddr, int ClientLen)
-    {
-        char buffer[MaxBufferSize]; //buffer for command
-        int bytesnum; //result code
-        uint8_t counter = 0;
-
-        while (true)
+        do
         {
-            bzero(buffer, MaxBufferSize);
+            newsockfd = accept(Sockfd, (struct sockaddr*)&cli_addr, &clilen);
 
-            /* Wait for message from client */
-            bytesnum = recv(ClientSocket, buffer, MaxBufferSize, 0); // recv on Windows
-            if (bytesnum == 0)
+            printf("NEWSOCK %i \n", newsockfd);
+
+            if (newsockfd == -1)
             {
-                perror("Client Disconnected");
-                shutdown(ClientSocket, SD_BOTH);
-                CleanThread(ClientSocket);
-                return;
-            }
-            else if (bytesnum == -1)
-            {
-                if (++counter > 5)
-                {
-                    printf("Client disconnected after few attempts\n");
-                    shutdown(ClientSocket, SD_BOTH);
-                    CleanThread(ClientSocket);
-                    return;
-                }
+                std::printf("Error on accept: %i \n", WSAGetLastError());
+                return false; //No one want to connect
             }
             else
             {
-                printf("recived %i bytes\n", bytesnum);
+                ClientsPollInfo.push_back( {newsockfd, POLLIN | POLLOUT, 0} );
+                std::printf("Client connected: adress [%i] port [%i], New clients count: %i\n", cli_addr.sin_addr, cli_addr.sin_port, ClientsPollInfo.size());
+            }
+        } while (newsockfd != -1);
+        return true;
+    }
 
-                std::lock_guard<std::mutex> guard(Mutex);
-                /*Broadcasting the sended message*/
-                for (auto SocketToThread = SocketToThreadMap.begin(); SocketToThread != SocketToThreadMap.end(); SocketToThread++)
+    const int32_t Server::BroadcastMessages(char* buffer, const int32_t index)
+    {
+        for (size_t i = index; i < ClientsPollInfo.size(); i++)
+        {
+            WSAPOLLFD& ClientSockPollFd = ClientsPollInfo[i];
+            if (ClientSockPollFd.revents & POLLIN)
+            {
+                bzero(buffer, MaxBufferSize);
+                //read without blocking
+                const int numbytes = recv(ClientSockPollFd.fd, buffer, MessageMaxSize, 0);
+                //ClientSockPollFd.revents ^= POLLIN; //sub POLLIN flag
+
+                printf("RECIEVED \n");
+
+                if (numbytes <= 0)
                 {
-                    SOCKET broadcastingSocket = SocketToThread->first;
-                    if (broadcastingSocket != INVALID_SOCKET && broadcastingSocket != ClientSocket)
+                    printf("deleting user \n");
+                    ClientsPollInfo.erase(ClientsPollInfo.begin() + index);
+                    shutdown(ClientSockPollFd.fd, SD_RECEIVE);
+                    return -1;
+                }
+
+                 //Broadcasting
+                for (auto it = ClientsPollInfo.begin() + 1; it != ClientsPollInfo.end(); it++)
+                {
+                    //POLLOUT - ready to send to send data 
+                    //to this socket without blocking
+                    //broadcast send without blocking
+                    const bool ReadyToGetDataOnSocket = it->revents & POLLOUT;
+                    const bool SocketIsNotInvalidAndSame = it->fd != INVALID_SOCKET && it->fd != ClientSockPollFd.fd;
+                    if (SocketIsNotInvalidAndSame && ReadyToGetDataOnSocket)
                     {
-                        send(broadcastingSocket, buffer, bytesnum, 0);
+                        printf("SENDEDED \n");
+                        send(it->fd, buffer, numbytes, 0);
+                        //it->revents ^= POLLOUT;
                     }
                 }
             }
@@ -139,6 +190,5 @@ int main()
 {
     Tcp_lab::Server Server;
     Server.Run();
-
-    return 0;
+    return 1;
 }
