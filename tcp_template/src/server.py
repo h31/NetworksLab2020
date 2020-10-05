@@ -1,13 +1,13 @@
 import socket
 import threading
+import datetime
 
 all_sock = {}
 data = ""
 socket_from = socket
-client_login = ""
 names = {}
 length = 0
-length_length = 8
+message_time = 0
 
 
 def to_bytes(text):
@@ -19,11 +19,12 @@ def sending_to_all(msg, sock):
     global all_sock
     global names
     global socket_from
+    global message_time
     for a in all_sock.keys():
         if all_sock[a] != sock:
-            login_bytes = to_bytes("[" + names[socket_from] + "]" + ":")
-            all_sock[a].send(login_bytes + msg)
-    return len(login_bytes+msg)
+            #login_bytes = to_bytes("[" + names[socket_from] + "]" + ":")
+            all_sock[a].send(msg)
+    return len(msg)
 
 
 def sending_to_all_without_name(msg, sock):
@@ -46,13 +47,14 @@ class ThreadReceive(threading.Thread):
         global data
         global length
         global socket_from
-        global client_login
         global names
+        global message_time
         client_login = self.csocket.recv(2048).decode('UTF-8')
         names[self.csocket] = client_login
         while True:
-            length = int(self.csocket.recv(length_length).decode('UTF-8'))
-            print(length)
+            length = int(self.csocket.recv(8).decode('UTF-8'))
+            message_time = self.csocket.recv(8).decode('UTF-8')
+            print(message_time)
             socket_from = self.csocket
             chunks = []
             bytes_recd = 0
@@ -79,11 +81,15 @@ class ThreadSend(threading.Thread):
             global data
             global names
             global socket_from
-            global client_login
+            global message_time
             while total_sent < int(length):
                 if data != '':
-                    length_name_message = '{:08d}'.format((int(length)+len(names[socket_from])+3))
+                    name_length = '{:08d}'.format(len(names[socket_from]))
+                    length_name_message = '{:08d}'.format((int(length)))
                     sending_to_all_without_name(to_bytes(length_name_message), socket_from)
+                    sending_to_all_without_name(to_bytes(message_time), socket_from)
+                    sending_to_all_without_name(to_bytes(name_length), socket_from)
+                    sending_to_all_without_name(to_bytes(names[socket_from]), socket_from)
                     sent = sending_to_all(data[total_sent:], socket_from)
                     data = ""
                     if sent == 0:
@@ -92,17 +98,28 @@ class ThreadSend(threading.Thread):
                     print("send length"+length_name_message)
 
 
-if __name__ == '__main__':
-    LOCALHOST = "127.0.0.1"
-    PORT = 5001
+def main():
+    localhost = "127.0.0.1"
+    port = 5001
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((LOCALHOST, PORT))
+    server.bind((localhost, port))
     print("Server started")
     server.listen(5)
     thread_send = ThreadSend()
     thread_send.start()
     while True:
+        # end = input()
+        # if end == "close":
+        #     try:
+        #         server.shutdown(socket.SHUT_WR)
+        #     except OSError:
+        #         print('Были подключенные клиенты/запрос на прием или отправку данных')
+        #     finally:
+        #         break
         client_sock, client_address = server.accept()
         thread_receive = ThreadReceive(client_address, client_sock)
         thread_receive.start()
+
+
+if __name__ == '__main__':
+    main()
