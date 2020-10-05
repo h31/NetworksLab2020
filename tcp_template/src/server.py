@@ -1,6 +1,5 @@
 import socket
 import threading
-import datetime
 
 all_sock = {}
 data = ""
@@ -22,17 +21,8 @@ def sending_to_all(msg, sock):
     global message_time
     for a in all_sock.keys():
         if all_sock[a] != sock:
-            #login_bytes = to_bytes("[" + names[socket_from] + "]" + ":")
             all_sock[a].send(msg)
     return len(msg)
-
-
-def sending_to_all_without_name(msg, sock):
-    global all_sock
-    global socket_from
-    for a in all_sock.keys():
-        if all_sock[a] != sock:
-            all_sock[a].send(msg)
 
 
 class ThreadReceive(threading.Thread):
@@ -86,10 +76,10 @@ class ThreadSend(threading.Thread):
                 if data != '':
                     name_length = '{:08d}'.format(len(names[socket_from]))
                     length_name_message = '{:08d}'.format((int(length)))
-                    sending_to_all_without_name(to_bytes(length_name_message), socket_from)
-                    sending_to_all_without_name(to_bytes(message_time), socket_from)
-                    sending_to_all_without_name(to_bytes(name_length), socket_from)
-                    sending_to_all_without_name(to_bytes(names[socket_from]), socket_from)
+                    sending_to_all(to_bytes(length_name_message), socket_from)
+                    sending_to_all(to_bytes(message_time), socket_from)
+                    sending_to_all(to_bytes(name_length), socket_from)
+                    sending_to_all(to_bytes(names[socket_from]), socket_from)
                     sent = sending_to_all(data[total_sent:], socket_from)
                     data = ""
                     if sent == 0:
@@ -108,14 +98,6 @@ def main():
     thread_send = ThreadSend()
     thread_send.start()
     while True:
-        # end = input()
-        # if end == "close":
-        #     try:
-        #         server.shutdown(socket.SHUT_WR)
-        #     except OSError:
-        #         print('Были подключенные клиенты/запрос на прием или отправку данных')
-        #     finally:
-        #         break
         client_sock, client_address = server.accept()
         thread_receive = ThreadReceive(client_address, client_sock)
         thread_receive.start()
