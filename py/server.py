@@ -15,7 +15,6 @@ def accept_cli(sv_socket):
         cli_socket, cli_add= sv_socket.accept()
         print 
         client_list.append(cli_socket)
-        # print(cli_add[1])
         list_name.append(str(cli_add[1]%100))
         print('Accepted socket')
         send_th=threading.Thread(target=send_cli,args=[cli_socket])  
@@ -25,7 +24,6 @@ def accept_cli(sv_socket):
 #send to all client except one(who send)        
 def send_cli(cli_socket):
     while True:
-       # print(cli_socket)
         msg = cli_socket.recv(M_SIZE)
         if (len(msg)==0):
             msg={'type':'O','msg':''}
@@ -43,7 +41,6 @@ def send_cli(cli_socket):
                     if msg["msg"]=='':
                         continue
                     client.send(f'<{datetime.now().strftime("%H:%M")}>[{list_name[client_list.index(cli_socket)]}]:{msg["msg"]}'.encode())
-                    # print(f'Client {list_name[client_list.index(cli_socket)]} send msg: {msg["msg"]}')
                 elif msg['type']=='O':
                     client.send(f'\t <<<{list_name[client_list.index(cli_socket)]}>>> OUT'.encode())
 
