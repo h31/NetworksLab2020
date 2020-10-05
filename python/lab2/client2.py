@@ -10,7 +10,7 @@ IP = 'localhost'
 PORT = 5001
 
 
-def client():
+def client2():
     # Нам нужно кодировать имя пользователя в байтах
     nickname = input("Enter your nickname: ").encode(CODE)
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -75,4 +75,4 @@ def send(socket):
             socket.send(msg_header + message)
 
 
-client()
+client2()

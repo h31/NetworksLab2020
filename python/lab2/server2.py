@@ -47,7 +47,7 @@ def new_client(socket):
     print(f"Connection from {client_data[0]}:{client_data[1]} ; Nickname: {client['data'].decode(CODE)}")
 
 
-def server():
+def server2():
     # TCP почти всегда использует SOCK_STREAM, а UDP использует SOCK_DGRAM.
     # TCP (SOCK_STREAM) - это протокол, основанный на соединении. Соединение установлено, и обе стороны ведут
     # разговор до тех пор, пока соединение не будет прервано одной из сторон или сетевой ошибкой.
@@ -98,4 +98,4 @@ def server():
             del clients_list[sock]
 
 
-server()
+server2()
