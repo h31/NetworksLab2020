@@ -4,52 +4,53 @@ import json
 import sys
 import os
 HOST ='127.0.0.1'
-PORT =5001
+PORT =5002
 M_SIZE=1024
 
 #send to server
-def send_to_sv(cli_socket,cli_name):
+def send_to_sv(cli_socket):
     while True:
         inp = input()
         if inp=='out_chat':
-            out_chat(cli_socket,cli_name)
+            out_chat(cli_socket)
         else:
-            normal_chat(cli_socket,cli_name,inp)
+            normal_chat(cli_socket,inp)
     
 #out of chat
-def out_chat(cli_socket,cli_name):
-    msg={'type':'O','cli_name':cli_name,'msg':''}
+def out_chat(cli_socket):
+    msg={'type':'O','msg':''}
     cli_socket.send(json.dumps(msg).encode('utf8', 'error input'))   
     os._exit(0)
 
 #chat as normal
-def normal_chat(cli_socket,cli_name,inp):
-    msg={'type':'N','cli_name':cli_name,'msg':inp}  
+def normal_chat(cli_socket,inp):
+    msg={'type':'N','msg':inp}  
     cli_socket.send(json.dumps(msg).encode('utf8', 'error input')) 
 
-#recive message from server
+#receive message from server
 def rc_fr_sv(cli_socket):
     while True:
         msg=cli_socket.recv(M_SIZE)
-        #server down suddenlly(keyboard interupt)
-        if msg==b'-1':
+        #server down suddenly(keyboard interupt)
+        if (msg==b'-1') or (len(msg)==0):
                 print('server down')
-                return -1        
+                cli_socket.close()            
+                os._exit(0)
         print(msg.decode())
 
 #client
 def cl():
     cli_socket= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cli_socket.connect((HOST,PORT)) 
-    #keyboard iterrupt when insert name of user
+    #keyboard interrupt when insert name of user
     try:
         cli_name= input('Your Name(Shinkai Makoto):')
     except KeyboardInterrupt:
-        out_chat(cli_socket,'')
+        out_chat(cli_socket)
         os._exit()
-    msg={'type':'J','cli_name':cli_name,'msg':''}
+    msg={'type':'J','msg':cli_name}
     cli_socket.send(json.dumps(msg).encode('utf8', 'error input'))   
-    send_th = threading.Thread(target=send_to_sv, args=[cli_socket,cli_name])
+    send_th = threading.Thread(target=send_to_sv, args=[cli_socket])
     send_th.start()
     rc_th=threading.Thread(target=rc_fr_sv, args=[cli_socket])
     rc_th.start()
@@ -57,5 +58,5 @@ def cl():
         while 1:
             continue
     except KeyboardInterrupt:
-        out_chat(cli_socket,cli_name)
+        out_chat(cli_socket)
 cl()
