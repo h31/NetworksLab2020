@@ -73,7 +73,7 @@ def handler(socket, client):
         local_time = str(int(time.time())).encode(CODE)
         l_time_header = f"{len(local_time):<{HEADER_LEN}}".encode(CODE)
         sender_time = {"header": l_time_header, "data": local_time}
-        if not message or message == "!exit":
+        if not message or message['data'].decode(CODE) == "!exit":
             # Клиент отключился, удаляем его
             try:
                 print(f"Connection was closed by {clients_list[socket]['data'].decode(CODE)}")

@@ -56,18 +56,25 @@ def send(socket):
         try:
             message = input()
             # выход из чата после сообщения !exit
-            if message == '!exit':
-                sys.exit()
-                socket.shutdown(socket.SHUT_RDWR)
-                socket.close()
-                return
+            # if message == "!exit":
+            #     exit(0)
+            #     socket.shutdown(socket.SHUT_RDWR)
+            #     socket.close()
+            #     return
 
             if message:
                 # Закодировать сообщение в байты. Подготовить заголовок и преобразовать в байты,
                 # как для имени пользователя ранее, затем отправить
+                message1 = message
                 message = message.encode(CODE)
                 msg_header = f"{len(message):<{HEADER_LEN}}".encode(CODE)
                 socket.send(msg_header + message)
+                if message1 == "!exit":
+                    socket.shutdown(socket.SHUT_RDWR)
+                    socket.close()
+                    exit(0)
+                    return
+
 
         except EOFError as e:
             continue
@@ -75,7 +82,7 @@ def send(socket):
         except:
             # socket.shutdown(socket.SHUT_RDWR)
             # socket.close()
-            sys.exit()
+            exit(0)
             return
 
 
