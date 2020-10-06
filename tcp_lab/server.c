@@ -39,10 +39,10 @@ void *recvmg(void *client_sock){
 }
 
 int main(int argc, char *argv[]){
-	struct sockaddr_in serverIP, cliAddr;
+	struct sockaddr_in serverIP;
 	pthread_t recvt;
 	char *ip = "127.0.0.1";
-	int sockfd = 0, clientSock=0;
+	int sockfd = 0, clientSock = 0;
 	uint16_t portno;
 	
 	portno = atoi(argv[1]);
@@ -54,6 +54,7 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 
+	memset(&serverIP, '0', sizeof(serverIP));
 	serverIP.sin_family = AF_INET;
 	serverIP.sin_port = htons(portno);
 	serverIP.sin_addr.s_addr = inet_addr(ip);
@@ -68,7 +69,11 @@ int main(int argc, char *argv[]){
 		printf("ERROR listening\n");
 		
 	while(1){
-		if((clientSock = accept(sockfd, (struct sockaddr *) NULL, NULL)) < 0 )
+		struct sockaddr_in cliAddr;
+		unsigned int clilen;
+		clilen = sizeof(cliAddr);
+		memset(&cliAddr, '0', sizeof(cliAddr));
+		if((clientSock = accept(sockfd, (struct sockaddr *) &cliAddr, &clilen)) < 0 )
 			printf("ERROR on accept\n");
 		pthread_mutex_lock(&threadChat);
 		clients[n] = clientSock;

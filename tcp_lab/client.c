@@ -56,6 +56,7 @@ int main(int argc,char *argv[]){
 		exit(1);
 	}
 
+	memset(&serverIP, '0', sizeof(serverIP));
 	serverIP.sin_port = htons(port);
 	serverIP.sin_family= AF_INET;
 	serverIP.sin_addr.s_addr = inet_addr(ip);
@@ -66,7 +67,6 @@ int main(int argc,char *argv[]){
 		return 1;
 	}
 		
-	
 	// Creating a client thread which is always waiting for a message
 	pthread_create(&recvt, NULL, (void *)recvmg, &sockfd);
 
