@@ -1,4 +1,5 @@
 import logging
+import socket
 import threading
 
 from FirstTask.CustomSocket import CustomSocket
@@ -50,6 +51,7 @@ def main():
                 return False
 
     def _close_user_connection(user):
+        connections[user].shutdown(socket.SHUT_WR)
         connections[user].close()
         print(f'user with address {user} has been disconnected')
         del connections[user]
@@ -63,7 +65,7 @@ def main():
         data = [d.decode() for d in data.split(b'\0')]
         if len(data) != 3:
             print('Message is not correct')
-            connections[user].close()
+            _close_user_connection(user)
             return False
         return data_header, data
 

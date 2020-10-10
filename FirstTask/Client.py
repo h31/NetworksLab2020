@@ -31,28 +31,32 @@ def main():
         except ConnectionRefusedError:
             pass
 
+    def _close_connection():
+        server_socket.shutdown()
+        server_socket.close()
+
     def _receive_msg():
         while True:
             try:
                 data_header = server_socket.receive_bytes_num(HEADER_LENGTH)
                 if not data_header:
-                    server_socket.close()
+                    _close_connection()
                     return False
                 data_length = int(data_header.decode().strip())
                 data = server_socket.receive_bytes_num(data_length)
                 _print_msg(data)
             except ConnectionResetError:
-                server_socket.close()
+                _close_connection()
                 return False
             except Exception as ex:
                 logging.error(ex)
-                server_socket.close()
+                _close_connection()
                 return False
 
     def _send_msg():
         while True:
             msg, msg_len = _build_msg(input())
-            if threading.active_count() < 3:
+            if threading.active_count() < 3 or not msg or not msg_len:
                 return False
             server_socket.send_bytes_num(msg, msg_len)
 
@@ -61,7 +65,7 @@ def main():
             input_msg = input()
         if input_msg == 'exit':
             if not server_socket.is_closed():
-                server_socket.shutdown()
+                _close_connection()
             return False, False
         msg = _encode_msg(input_msg)
         msg_len = len(msg)
@@ -84,7 +88,7 @@ def main():
             return msg_user_name, msg_time_sent, msg_content
         except ValueError or IndexError:
             print('Message from the server is not correct')
-            server_socket.close()
+            _close_connection()
             return False
 
     def _print_msg(msg):
