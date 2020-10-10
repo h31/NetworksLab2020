@@ -4,6 +4,7 @@ import pytz
 import select
 import threading
 from termcolor import colored
+from queue import Queue
 
 from FirstTask.CustomSocket import CustomSocket
 
@@ -38,8 +39,11 @@ def main():
     poller = select.poll()
     poller.register(server_socket.get_socket(), READ_WRITE)
 
+    message_queue = Queue()
+
     def _close_connection():
         poller.unregister(server_socket.get_socket())
+        server_socket.shutdown()
         server_socket.close()
 
     def _receive_msg():
@@ -50,8 +54,6 @@ def main():
             data_header = server_socket.receive_bytes_num(HEADER_LENGTH)
             if not data_header:
                 connected = False
-                if send_thread.is_alive():
-                    print("Server has disconnected. Type something to exit.")
                 _close_connection()
                 return
             data_length = int(data_header.decode().strip())
@@ -62,12 +64,17 @@ def main():
             _close_connection()
             return False
 
-    def _send_msg():
+    def _get_input_msg():
         nonlocal connected
-        msg, msg_len = _build_msg(input())
-        if not connected:
-            return False
-        server_socket.send_bytes_num(msg, msg_len)
+        while connected:
+            msg, msg_len = _build_msg(input())
+            if not msg or not msg_len:
+                connected = False
+            message_queue.put([msg, msg_len])
+
+    def _send_msg():
+        next_msg = message_queue.get_nowait()
+        server_socket.send_bytes_num(next_msg[0], next_msg[1])
 
     def _build_msg(input_msg):
         nonlocal connected
@@ -109,26 +116,20 @@ def main():
               colored(msg_time_sent, 'blue'),
               colored(msg_content, 'cyan'))
 
-    receive_thread = threading.Thread(target=_receive_msg)
-    receive_thread.daemon = True
-    send_thread = threading.Thread(target=_send_msg)
+    send_thread = threading.Thread(target=_get_input_msg)
+    send_thread.start()
 
     while True:
         events = poller.poll(TIMEOUT)
 
         if not connected:
             return False
-
         for fd, flag in events:
             if flag & (select.POLLIN | select.POLLPRI):
-                if not receive_thread.is_alive():
-                    receive_thread = threading.Thread(target=_receive_msg)
-                    receive_thread.daemon = True
-                    receive_thread.start()
+                _receive_msg()
             elif flag & select.POLLOUT:
-                if not send_thread.is_alive():
-                    send_thread = threading.Thread(target=_send_msg)
-                    send_thread.start()
+                if not message_queue.empty():
+                    _send_msg()
             if flag & select.POLLERR:
                 logging.error('Error occurred while polling')
                 _close_connection()

@@ -1,4 +1,5 @@
 import select
+import socket
 from queue import Queue
 
 from FirstTask.CustomSocket import CustomSocket
@@ -36,6 +37,7 @@ def main():
         poller.unregister(sock)
         del fd_to_socket[sock.fileno()]
         del message_queues[sock]
+        sock.shutdown(socket.SHUT_WR)
         sock.close()
         print(f'User with address {addr} has disconnected')
 
