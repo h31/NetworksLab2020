@@ -8,8 +8,6 @@ PORT = 5003
 M_SIZE = 1024
 
 #send to server
-
-
 def send_to_sv(cli_socket):
     while True:
 
@@ -20,16 +18,12 @@ def send_to_sv(cli_socket):
             normal_chat(cli_socket, inp)
 
 #out of chat
-
-
 def out_chat(cli_socket):
     msg = {'type': 'O', 'msg': ''}
     cli_socket.send(json.dumps(msg).encode('utf8', 'error input'))
     os._exit(0)
 
 #chat as normal
-
-
 def normal_chat(cli_socket, inp):
     msg = {'type': 'N', 'msg': inp}
     msg = json.dumps(msg).encode('utf8', 'error input')
@@ -39,8 +33,6 @@ def normal_chat(cli_socket, inp):
     cli_socket.send(msg)
 
 #receive message from server
-
-
 def rc_fr_sv(cli_socket):
     while True:
         msg = cli_socket.recv(M_SIZE)
@@ -52,8 +44,6 @@ def rc_fr_sv(cli_socket):
         print(msg.decode())
 
 #client
-
-
 def cl():
     cli_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cli_socket.connect((HOST, PORT))
@@ -79,11 +69,9 @@ def cl():
     rc_th.start()
     try:
         while 1:
-
             continue
     except KeyboardInterrupt:
         out_chat(cli_socket)
-
 
 cl()
 
