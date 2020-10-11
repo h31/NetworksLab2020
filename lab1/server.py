@@ -19,11 +19,11 @@ server.bind(ADDR)
 
 def print_time(addr, msg):
     return (f"<{str(datetime.now().hour)}:{str(datetime.now().minute)}>" \
-            f" [{dict.get(addr[1])}] {msg}")
+            f" [{dict.get(addr[1])}]: {msg}")
 
 
 def print_name(addr, msg):
-    return f" [{dict.get(addr[1])}] {msg}"
+    return f"[ {dict.get(addr[1])} ]: {msg}"
 
 
 def registration(conn, addr, msg):
@@ -35,7 +35,8 @@ def send_all_world(conn, addr, msg):
     for i in dictConn:
         if i == conn:
             continue
-        i.send((f"[{dict.get(addr[1])}] {msg}").encode(FORMAT))
+        i.send(('[ '+dict.get(addr[1])+' ]:' + msg).encode(FORMAT))
+
 
 
 def send_all_world_server(msg):
@@ -53,23 +54,20 @@ def handle_client(conn, addr):
             msg_length = int(msg_length)
             msg = conn.recv(msg_length).decode(FORMAT)
             if msg == DISCONNECT_MESSAGE:
-                try:
                     send_all_world(conn, addr, msg)
                     dictConn.remove(conn)
                     print('this person remove')
-                except:
-                    connected = False
-                    print("Server is dead.")
             elif msg == SERVER_MASSAGE:
                 connected = False
-                dictConn.remove(conn)
+                try:
+                    dictConn.remove(conn)
+                except:
+                    sys.exit(0)
             elif addr[1] not in dict.keys():
                 registration(conn, addr[1], msg)
-                conn.send(print_name(addr, msg).encode(FORMAT))
             else:
                 print(print_time(addr, msg))
                 send_all_world(conn, addr, msg)
-                conn.send(print_name(addr, msg).encode(FORMAT))
     conn.close()
 
 
@@ -77,9 +75,7 @@ def listen_server():
     textServer = input()
     if textServer == 'quit':
         print(textServer)
-        msg = 'Server was closed'
-        send_all_world_server(msg)
-        send_all_world_server(DISCONNECT_MESSAGE)
+        send_all_world_server(SERVER_MASSAGE)
         dict.clear()
         dictConn.clear()
         server.close()

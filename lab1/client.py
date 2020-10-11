@@ -1,8 +1,9 @@
 import socket
 import sys
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 
+message_time =0
 SERVER_MASSAGE = "SERVER DEAD"
 
 HEADER = 64
@@ -15,12 +16,11 @@ ADDR = (SERVER, PORT)
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(ADDR)
 
-
 def read_listen(check):
     while True:
         if check == False:
             print('Enter any key to exit')
-            send_server(DISCONNECT_MESSAGE)
+            send_server(SERVER_MASSAGE)
             read_all_world(False)
             client.shutdown(socket.SHUT_WR)
             client.close()
@@ -53,10 +53,17 @@ def send_server(msg):
 def read_all_world(check):
     while check:
         try:
-            data = client.recv(4096).decode(FORMAT)
-            print(f"<{str(datetime.now().hour)}:{str(datetime.now().minute)}>" + data)
-            if data == DISCONNECT_MESSAGE:
+            data = client.recv(2048).decode(FORMAT)
+            if data == SERVER_MASSAGE:
+                print(data)
                 read_listen(False)
+            else:
+                time = (f"{str(datetime.now().hour)}:{str(datetime.now().minute)}")
+                listName = data.split(' ]:')
+                name = listName[0]
+                kok = name.split('[ ')
+                name = kok[1]
+                print(time + '[ ' + name + ']: ' + listName[1])
         except:
             sys.exit(0)
 
