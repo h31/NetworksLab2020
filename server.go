@@ -7,7 +7,9 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
+	"time"
 )
 import "bufio"
 
@@ -29,24 +31,28 @@ func handle(conn net.Conn, pull *[]*net.Conn) error {
 		var text string
 		for {
 			buf := make([]byte, 128)
-			n, err := r.Read(buf)
+			_, err := r.Read(buf)
 			if err == io.EOF {
 				conn.Close()
 				return err
 			}
 			if err != nil {
-				log.Fatal(err)
+				conn.Close()
+				return err
 			}
 			text += string(buf)
-			if n == 0 || strings.Contains(text, "\n") {
+			if strings.Contains(text, "\n") {
 				break
 			}
 		}
-		fmt.Print(text)
+		text = strings.TrimSpace(text)
+		timestamp, _ := strconv.ParseInt(text[1:strings.Index(text, "]")], 10, 64)
+
+		fmt.Print("[" + time.Unix(timestamp, 0).Format("2006-01-02 15:04:00") + "] " + text[strings.Index(text, "]")+1:])
 		for _, c := range *pull {
 			if *c != conn {
 				w := bufio.NewWriter(*c)
-				w.WriteString(text + "\n")
+				w.WriteString(text)
 				w.Flush()
 			}
 		}

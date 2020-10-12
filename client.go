@@ -4,9 +4,10 @@ import (
 	"log"
 	"net"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
-	"time"
+	time "time"
 )
 import "fmt"
 import "bufio"
@@ -54,21 +55,34 @@ func main() {
 		for work {
 			fmt.Print(">")
 			text, _ := reader.ReadString('\n')
-			fmt.Fprintf(conn, "["+time.Now().Format("2006-01-02 15:04:05")+"] <"+nik+"> "+text)
+			fmt.Fprintf(conn, "["+strconv.FormatInt(time.Now().Unix(), 10)+"]<"+nik+"> "+text)
 		}
 		wg.Done()
 	}(conn)
 	wg.Add(1)
 	go func(conn net.Conn) {
 		for work {
-			message, _ := netreader.ReadString('\n')
-			if len(message) == 0 {
-				wg.Done()
-				work = false
-				fmt.Println("Server disconnscted")
-				os.Exit(0)
+			var text string
+			for {
+				buf := make([]byte, 128)
+				_, err := netreader.Read(buf)
+				if err != nil {
+					conn.Close()
+					wg.Done()
+					work = false
+					fmt.Println("Server disconnected")
+					os.Exit(0)
+				}
+				text += string(buf)
+				if strings.Contains(text, "\n") {
+					break
+				}
 			}
-			fmt.Print("\n->" + message)
+			text = strings.TrimSpace(text)
+			timestamp, _ := strconv.ParseInt(text[1:strings.Index(text, "]")], 10, 64)
+
+			text = ("[" + time.Unix(timestamp, 0).Format("2006-01-02 15:04:00") + "] " + text[strings.Index(text, "]")+1:])
+			fmt.Print("\n->" + text)
 			fmt.Print(">")
 		}
 		wg.Done()
