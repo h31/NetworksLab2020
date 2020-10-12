@@ -43,24 +43,39 @@ def server():
 		if user:
 			clients[client_socket] = user
 			print(f"New connetion from {client_address[0]}:{client_address[1]} "
-		 	f"Username: {user['data'].decode(CODE)}")
-		 	#Thread for every users
+			f"Username: {user['data'].decode(CODE)}")
+			#Thread for every users
 			threading.Thread(target=receiver, args=(client_socket, user, )).start()
 
 
 def recv_message(client_socket):
 	while True:
-		try:
-			message_header = client_socket.recv(HEADER_LENGTH)
+		message_header = client_socket.recv(HEADER_LENGTH)
 
-			if not len(message_header):
-				return False
-
-			message_length = int(message_header.decode(CODE).strip())
-			return {"header": message_header, "data": client_socket.recv(message_length)}
-
-		except:
+		if not message_header:
 			return False
+
+		while len(message_header) < HEADER_LENGTH:
+			recv_header = (client_socket.recv(HEADER_LENGTH - len(message_header)))
+
+			message_header += recv_header
+
+			if len(message_header) == HEADER_LENGTH:
+				break
+
+		if not len(message_header):
+			return None
+
+		try:
+			int(message_header)
+		except ValueError:
+			print("Incorrect type of header. Must be 'int'.")
+			continue
+
+		message_length = int(message_header.decode(CODE).strip())
+		data = client_socket.recv(message_length)
+
+		return {"header": message_header, "data": data}
 
 
 def recv_time():
@@ -77,20 +92,26 @@ def receiver(client_socket, user):
 		send_time = recv_time()
 
 		if not message:
-			try:
-				print(f"Connetion was closed by {clients[client_socket]['data'].decode(CODE)}")
-				del clients[client_socket]
-				client_socket.shutdown(socket.SHUT_RDWR)
-				client_socket.close()
-				continue
-			except:
-				continue
+			client_socket.shutdown(socket.SHUT_WR)
+			client_socket.close()
+			print(f"Connetion was closed by {clients[client_socket]['data'].decode(CODE)}")
+			del clients[client_socket]
+			return None
+
+		while int(message['header']) > len(message['data']):
+			message['data'] += (client_socket.recv(int(message['header']) - len(message['data'])))
+			if int(message['header']) == len(message['data']):
+				break
 
 		server_time = time.strftime("%H:%M:%S", time.gmtime())
 		print(f"Received message from {user['data'].decode(CODE)} at {server_time}: {message['data'].decode(CODE)}")
 
-		for client in clients:
-			if client != client_socket:
-				client.send(user['header'] + user['data'] + message['header'] + message['data'] + send_time['header'] + send_time['data'])
+		try:
+			for client in clients:
+				if client != client_socket:
+					client.send(user['header'] + user['data'] + message['header'] + message['data'] + send_time['header'] + send_time['data'])
+		except BrokenPipeError as e:
+			print("Error with not closed socket.")
+			continue
 
 server()

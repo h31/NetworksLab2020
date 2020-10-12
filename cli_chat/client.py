@@ -50,10 +50,11 @@ def write(client_socket):
 			message = input()
 
 			if message == '!q':
-				sys.exit()
-				client_socket.shutdown(socket.SHUT_RDWR)
-				client_socket.close()	
-				return
+				message_header = None
+				client_socket.send(message_header)
+
+				close_connection(client_socket)
+				return None
 
 			if message:
 				message = message.encode(CODE)
@@ -61,13 +62,21 @@ def write(client_socket):
 				client_socket.send(message_header + message)
 
 		except EOFError as e:
-			continue
+			print("EOF is not correct input.")
+			close_connection(client_socket)
+			return None
 
 		except:
 			client_socket.shutdown(socket.SHUT_RDWR)
 			client_socket.close()
 			sys.exit()
+			print("Connection was closed. Unexcepted error.")
 			continue
+
+
+def close_connection(client_socket):
+	client_socket.shutdown(socket.SHUT_RDWR)
+	client_socket.close()
 			
 
 def receive(client_socket):
@@ -93,6 +102,7 @@ def read(client_socket):
 			print(f'<{client_time}> [{username}]: {message}')
 
 		except Exception as e:
+			print("Can not receive this message")
 			print('Error', str(e))
 			sys.exit()
 
