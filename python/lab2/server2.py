@@ -79,6 +79,17 @@ def server2():
             if sock == serv_sock:
                 new_client(sock)
             elif message := receive(sock):
+                # Клиент отключился, удаляем его
+                if message['data'].decode(CODE) == "!exit":
+                    try:
+                        print(f"Connection was closed by {clients_list[sock]['data'].decode(CODE)}")
+                        sockets_list.remove(sock)
+                        del clients_list[sock]
+                        sock.shutdown(sock.SHUT_RDWR)
+                        sock.close()
+                        continue
+                    except:
+                        continue
                 # Получить пользователя по уведомленному сокету, чтобы мы знали, кто отправил сообщение
                 client = clients_list[sock]
                 for client_sock in clients_list:
@@ -87,11 +98,16 @@ def server2():
                         # Заголовок имени пользователя, отправленный пользователем при подключении
                         print(f"Received message from {client['data'].decode(CODE)}: {message['data'].decode(CODE)}")
                         client_sock.send(client['header'] + client['data'] + message['header'] + message['data'])
-            # Клиент отключился, удаляем его
             elif message is False:
-                print(f"Connection was closed by {clients_list[sock]['data'].decode(CODE)}")
-                sockets_list.remove(sock)
-                del clients_list[sock]
+                try:
+                    print(f"Connection was closed by {clients_list[sock]['data'].decode(CODE)}")
+                    sockets_list.remove(sock)
+                    del clients_list[sock]
+                    sock.shutdown(sock.SHUT_RDWR)
+                    sock.close()
+                    continue
+                except:
+                    continue
         # Обработка некоторых исключений сокетов
         for sock in exceptions:
             sockets_list.remove(sock)
