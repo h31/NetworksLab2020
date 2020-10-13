@@ -2,46 +2,54 @@ import os
 import json
 import threading
 import socket
-import readline
+# import readline
 HOST = '127.0.0.1'
-PORT = 5003
-M_SIZE = 1024
+PORT = 5008
+H_SIZE = 10
 
 #send to server
 def send_to_sv(cli_socket):
     while True:
 
         inp = input()
-        if inp == 'out_chat':
+        if inp == '!q':
             out_chat(cli_socket)
         else:
             normal_chat(cli_socket, inp)
 
 #out of chat
 def out_chat(cli_socket):
-    msg = {'type': 'O', 'msg': ''}
-    cli_socket.send(json.dumps(msg).encode('utf8', 'error input'))
+    msg = json.dumps({'type': 'O', 'msg': ''}).encode('UTF-8', 'error input')
+    length_msg = f'{len(msg):< {H_SIZE}}'.encode()
+    cli_socket.send(length_msg + msg)
     os._exit(0)
 
 #chat as normal
 def normal_chat(cli_socket, inp):
     msg = {'type': 'N', 'msg': inp}
-    msg = json.dumps(msg).encode('utf8', 'error input')
-    if len(msg) > 1024:
-        print('>>>MESSAGE TOO LONG. CAN NOT SEND')
-        return
-    cli_socket.send(msg)
+    msg = json.dumps(msg).encode('UTF-8', 'error input')
+    length_msg = f'{len(msg):< {H_SIZE}}'.encode()
+    cli_socket.send(length_msg + msg)
 
 #receive message from server
 def rc_fr_sv(cli_socket):
     while True:
-        msg = cli_socket.recv(M_SIZE)
+        length_msg = cli_socket.recv(H_SIZE)
         #server down suddenly(keyboard interupt)
-        if (msg == b'-1') or (len(msg) == 0):
+        if (len(length_msg) == 0) or (length_msg == b'-1'):
+            print(length_msg)
+            print(len(length_msg))
             print('server down')
             cli_socket.close()
             os._exit(0)
-        print(msg.decode())
+        else:
+            length_msg = int(length_msg)
+            msg = cli_socket.recv(length_msg)
+            msg = json.loads(msg.decode())
+            if msg['type'] == 0:
+                continue
+            else:
+                print(msg['msg'])
 
 #client
 def cl():
@@ -61,8 +69,9 @@ def cl():
             print('>>NAME TOO LONG<<')
         else:
             break
-    msg = {'type': 'J', 'msg': cli_name}
-    cli_socket.send(json.dumps(msg).encode('utf8', 'error input'))
+    msg = json.dumps({'type': 'J', 'msg': cli_name}).encode('UTF-8','error input')
+    message_header = f"{len(msg):<{H_SIZE}}".encode()
+    cli_socket.send(message_header+msg)
     send_th = threading.Thread(target=send_to_sv, args=[cli_socket])
     send_th.start()
     rc_th = threading.Thread(target=rc_fr_sv, args=[cli_socket])
@@ -74,4 +83,3 @@ def cl():
         out_chat(cli_socket)
 
 cl()
-
