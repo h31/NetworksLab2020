@@ -13,6 +13,7 @@ namespace Tcp_lab {
 
 		//PCSTR - Pointer Const Not Wide String
 		bool Initialize(PCSTR NodeName, PCSTR ServiceName);
+		void Deinitialize();
 		inline void SetNickname(LPCWCH nickname, unsigned long readedBytes);
 
 		void SenderRun();

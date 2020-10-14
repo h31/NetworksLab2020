@@ -10,7 +10,6 @@ namespace Tcp_lab {
 
     Client::~Client()
     {
-        shutdown(SocketFd, SD_RECEIVE);
         closesocket(SocketFd);
         //Cleanup winsock
         WSACleanup();
@@ -65,6 +64,11 @@ namespace Tcp_lab {
         return true;
     }
 
+    void Client::Deinitialize()
+    {
+        shutdown(SocketFd, SD_BOTH);
+    }
+
     void Client::SetNickname(LPCWCH nickname, unsigned long readedBytes)
     {
        bzero(Name, NameMaxSize * sizeof(wchar_t));
@@ -87,7 +91,7 @@ namespace Tcp_lab {
             bzero(Name, NameMaxSize);
             bzero(Message, MessageMaxSize);
 
-            numbytes = recv(SocketFd, buffer, MessageMaxSize, 0);
+            numbytes = recv(SocketFd, buffer, 1024, 0);
             // Reading server response
             if (numbytes == 0)
             {
@@ -101,6 +105,10 @@ namespace Tcp_lab {
             }
             else
             {
+#ifdef CLIENT_DEBUG
+                std::printf("MAXBUFFERSIZE :  %i\n", MaxBufferSize);
+                std::printf("Number of recieved bytes :  %i\n", numbytes);
+#endif
                 Desearilize(buffer, &Info, Name, Message);
                 time_t time = static_cast<time_t>(Info.Time);
                 struct tm* exactTime = std::localtime(&time);
@@ -114,7 +122,8 @@ namespace Tcp_lab {
     {
         char buff[MaxBufferSize]; //final output buffer
         CHAR MessageBuf[MessageMaxSize];
-        TCHAR wstr[WideMessageMaxSize]; //buffer in wide char
+        //PTCHAR wstr = new TCHAR[WideMessageMaxSize]; //buffer in wide char
+        TCHAR wstr[WideMessageMaxSize];
         size_t TotalSize = 0;
 
         while (IsRunning)
@@ -126,14 +135,13 @@ namespace Tcp_lab {
             TotalSize = 0;
             unsigned long readedBytes = 0; //size of readed bytes
 
-            if (ReadConsole(StdinHandle, wstr, MessageMaxSize, &readedBytes, NULL))
+            if (ReadConsole(StdinHandle, wstr, WideMessageMaxSize, &readedBytes, NULL))
             {
                 size_t requiredBytesNum = WideCharToMultiByte(CP_UTF8, 0, wstr, readedBytes, MessageBuf, sizeof(MessageBuf), NULL, NULL);
-                //WideCharToMultiByte(CP_UTF8, 0, wstr, readedBytes, MessageBuf, requiredBytesNum, NULL, NULL);
 
-                if (strlen(MessageBuf) > MessageMaxSize - 1)
+                if (strlen(MessageBuf) > MessageMaxSize)
                 {
-                    Serialize(buff, Name, MessageBuf, strlen(Name), MessageMaxSize - 2);
+                    Serialize(buff, Name, MessageBuf, strlen(Name), MessageMaxSize);
                     TotalSize = sizeof(uint16_t) + strlen(Name) + MessageMaxSize + sizeof(MessageInfo);
                 }
                 else
@@ -145,12 +153,22 @@ namespace Tcp_lab {
 
             if (TotalSize > sizeof(MessageInfo))
             {
+#ifdef CLIENT_DEBUG
+                printf("DEBUG strlen size message: %i\n", strlen(MessageBuf));
+                printf("TOTAL SIZE: %i\n", TotalSize);
+#endif
                 // Sending message to the server
                 if (send(SocketFd, buff, TotalSize, 0) < 0 && IsRunning)
                 {
-                    perror("ERROR writing to socket");
-                    IsRunning = false;
-                    return;
+                    //perror("ERROR writing to socket");
+                    if (WSAGetLastError() == WSAENOTSOCK)
+                    {
+                        printf("Socket operation on nonsocket: %i\n", SocketFd);
+                    }
+                        
+                   
+                    //IsRunning = false;
+                    //return;
                 }
             }
         }
@@ -160,6 +178,7 @@ namespace Tcp_lab {
     {
         printf("Name Length %i\n", strlen(Name));
         printf("Struct size %i\n", sizeof(MessageInfo));
+        printf("DEBUG MAX message: %i\n", MessageMaxSize);
     }
 }
 
@@ -188,7 +207,7 @@ int main(int argc, char* argv[])
 #ifdef CLIENT_DEBUG
         Client.PrintDebug();
 #endif
-        fprintf(stderr, "usage: %s hostname port if want to not local addr\n", argv[0]);
+        //fprintf(stderr, "usage: %s hostname port if want to not local addr\n", argv[0]);
         isInitialized = Client.Initialize("127.0.0.1", "5001");
     }
     else
@@ -200,6 +219,7 @@ int main(int argc, char* argv[])
     {
         Client.Reciever = std::thread(&Tcp_lab::Client::RecieverRun, &Client);
         Client.SenderRun();
+        Client.Deinitialize();
     }
     return 1;
 }

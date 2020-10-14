@@ -128,14 +128,15 @@ namespace Tcp_lab {
         {
             newsockfd = accept(Sockfd, (struct sockaddr*)&cli_addr, &clilen);
 
-            printf("NEWSOCK %i \n", newsockfd);
+            //printf("NEWSOCK %i \n", newsockfd);
 
-            if (newsockfd == -1)
+            /*if (newsockfd == -1)
             {
                 std::printf("Error on accept: %i \n", WSAGetLastError());
                 return false; //No one want to connect
             }
-            else
+            else*/
+            if (newsockfd != -1)
             {
                 ClientsPollInfo.push_back( {newsockfd, POLLIN | POLLOUT, 0} );
                 std::printf("Client connected: adress [%i] port [%i], New clients count: %i\n", cli_addr.sin_addr, cli_addr.sin_port, ClientsPollInfo.size());
@@ -156,8 +157,6 @@ namespace Tcp_lab {
                 const int numbytes = recv(ClientSockPollFd.fd, buffer, MessageMaxSize, 0);
                 //ClientSockPollFd.revents ^= POLLIN; //sub POLLIN flag
 
-                printf("RECIEVED \n");
-
                 if (numbytes <= 0)
                 {
                     printf("deleting user \n");
@@ -176,7 +175,6 @@ namespace Tcp_lab {
                     const bool SocketIsNotInvalidAndSame = it->fd != INVALID_SOCKET && it->fd != ClientSockPollFd.fd;
                     if (SocketIsNotInvalidAndSame && ReadyToGetDataOnSocket)
                     {
-                        printf("SENDEDED \n");
                         send(it->fd, buffer, numbytes, 0);
                         //it->revents ^= POLLOUT;
                     }

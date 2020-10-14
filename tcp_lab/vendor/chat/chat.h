@@ -77,7 +77,7 @@ struct MessageInfo
 #define NameMaxSize 64
 #define WideMessageMaxSize 255
 #define MessageMaxSize WideMessageMaxSize * sizeof(wchar_t)
-#define MaxBufferSize NameMaxSize + MessageMaxSize + sizeof(MessageInfo)
+#define MaxBufferSize NameMaxSize + MessageMaxSize + sizeof(MessageInfo) + sizeof(uint16_t)
 
 namespace Tcp_lab {
 
