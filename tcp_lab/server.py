@@ -39,24 +39,6 @@ def main():
             server.shutdown(socket.SHUT_WR)
             server.close()
             sys.exit()
-
-def accept_connection(server):
-    while True:
-        cli_sock, cli_addr = server.accept()
-        nickname = receive_msg(cli_sock)
-
-        if nickname:
-            sockets.append(cli_sock)
-            clients[cli_sock] = nickname
-            print(f"New client has connected")
-            code_n = f'{"+1":<{HEADER_LENGTH}}'.encode('utf-8')
-            notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode('utf-8')
-            notice_header = f"{len(notice):<{HEADER_LENGTH}}".encode('utf-8')
-            for client in clients:
-                if client != cli_sock:
-                    client.send(code_n + notice_header + notice)
-            handler_thread = threading.Thread(target=handler_client, args=(cli_sock, nickname, ))
-            handler_thread.start()
     
 def receive_msg(cli_sock):
     try:
