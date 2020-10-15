@@ -51,7 +51,7 @@ def receive_msg(cli_sock):
     while True:
         snickname_header = cli_sock.recv(HEADER_LENGTH)
 
-        if not len(snickname_header) or snickname_header.decode('utf-8').strip() == '-1':
+        if not len(snickname_header):
             print('Connection lost')
             cli_sock.shutdown(socket.SHUT_WR)
             cli_sock.close()
