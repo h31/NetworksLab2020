@@ -2,6 +2,7 @@ import socket
 import threading
 from datetime import datetime
 import os
+import random
 
 HOST = "127.0.0.1"
 PORT = 5001
@@ -14,7 +15,7 @@ def accept_cli(sv_socket):
     while True:
         cli_socket, cli_add = sv_socket.accept()
         client_list.append(cli_socket)
-        list_name.append(str(cli_add[1] % 100))
+        list_name.append("")
         print("Accepted socket")
         send_th = threading.Thread(target=recv_send_cli, args=[cli_socket])
         send_th.start()
@@ -54,7 +55,11 @@ def send_to_client(cli_socket, type_m, name, msg):
 def get_set_name(cli_socket, msg, type_m):
     if type_m == 2:
         indx = client_list.index(cli_socket)
-        list_name[indx] = msg + "-" + list_name[indx]
+        while 1:
+            temp = msg + "-" + str(random.randint(0,100))
+            if temp not in list_name:
+                break
+        list_name[indx] = temp
     return list_name[client_list.index(cli_socket)]
 
 
@@ -62,7 +67,7 @@ def format_msg(cli_socket, type_m, msg, time, name):
     new_format = ""
     #'2'<-> join message
     if type_m == 2:
-        new_format = f"\t<<<{msg}JOIN>>>"
+        new_format = f"\t<<<{name} JOIN>>>"
     #'1'<-> normal message
     elif type_m == 1:
         new_format = f"<{time}>[{name}]:{msg}"

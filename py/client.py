@@ -56,7 +56,7 @@ def cl():
     # keyboard interrupt when insert name of user
     while True:
         try:
-            cli_name = input("Your Name:")
+            cli_name = input("Your Name(default = anony):")
         except KeyboardInterrupt:
             out_chat(cli_socket)
             os._exit(0)
