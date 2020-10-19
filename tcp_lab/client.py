@@ -63,6 +63,12 @@ def receive_msg(cli_sock):
             print(f'{notice}')
             continue
 
+        if snickname_header.decode('utf-8').strip() == '-1':
+            notice_length = int(cli_sock.recv(HEADER_LENGTH).decode('utf-8').strip())
+            notice = cli_sock.recv(notice_length).decode('utf-8')
+            print(f'{notice}')
+            continue
+
         snickname_length = int(snickname_header.decode('utf-8').strip())
 
         snickname = cli_sock.recv(snickname_length).decode('utf-8')

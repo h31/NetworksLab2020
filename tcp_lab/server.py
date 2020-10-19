@@ -25,12 +25,7 @@ def main():
                 clients[cli_sock] = nickname
                 current_time = datetime.now().strftime("%H:%M:%S")
                 print(f"At {current_time} New client has connected")
-                code_n = f'{"+1":<{HEADER_LENGTH}}'.encode('utf-8')
-                notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode('utf-8')
-                notice_header = f"{len(notice):<{HEADER_LENGTH}}".encode('utf-8')
-                for client in clients:
-                    if client != cli_sock:
-                        client.send(code_n + notice_header + notice)
+                notify('+1', nickname, cli_sock)
                 handler_thread = threading.Thread(target=handler_client, args=(cli_sock, nickname, ))
                 handler_thread.start()
         except KeyboardInterrupt:
@@ -38,6 +33,21 @@ def main():
             server.shutdown(socket.SHUT_WR)
             server.close()
             sys.exit()
+
+def broadcast(msg, cli_sock):
+    for client in clients:
+        if client != cli_sock:
+            client.send(msg)
+
+def notify(typeOfn, nickname, cli_sock):
+    code_n = f'{typeOfn:<{HEADER_LENGTH}}'.encode('utf-8')
+    if (typeOfn == '+1'):
+        notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode('utf-8')
+    if (typeOfn == '-1'):
+        notice = f"{nickname['data'].decode('utf-8')} has out from the chat".encode('utf-8')
+    notice_header = f"{len(notice):<{HEADER_LENGTH}}".encode('utf-8')
+    msg = code_n + notice_header + notice
+    broadcast(msg, cli_sock)
     
 def receive_msg(cli_sock):
     try:
@@ -66,15 +76,15 @@ def handler_client(cli_sock, nickname):
             del clients[cli_sock]
             note = f"{nickname['data'].decode('utf-8')} has disconnected"
             print(note)
+            notify('-1', nickname, cli_sock)
             return None
         
         current_time = datetime.now().strftime("%H:%M:%S")
 
         print(f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg["data"].decode("utf-8")}')
 
-        for client in clients:
-            if (client != cli_sock):
-                client.send(nickname['header'] + nickname['data'] + msg['header'] + msg['data'])
+        full_msg = nickname['header'] + nickname['data'] + msg['header'] + msg['data']
+        broadcast(full_msg, cli_sock)
 
 
 if __name__ == '__main__':
