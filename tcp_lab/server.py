@@ -1,6 +1,7 @@
 # Server lab 1
 import socket
 import threading
+from datetime import datetime
 import sys
 
 HEADER_LENGTH = 10
@@ -22,7 +23,8 @@ def main():
 
             if nickname:
                 clients[cli_sock] = nickname
-                print(f"New client has connected")
+                current_time = datetime.now().strftime("%H:%M:%S")
+                print(f"At {current_time} New client has connected")
                 code_n = f'{"+1":<{HEADER_LENGTH}}'.encode('utf-8')
                 notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode('utf-8')
                 notice_header = f"{len(notice):<{HEADER_LENGTH}}".encode('utf-8')
@@ -65,8 +67,10 @@ def handler_client(cli_sock, nickname):
             note = f"{nickname['data'].decode('utf-8')} has disconnected"
             print(note)
             return None
+        
+        current_time = datetime.now().strftime("%H:%M:%S")
 
-        print(f'Received message from {nickname["data"].decode("utf-8")}: {msg["data"].decode("utf-8")}')
+        print(f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg["data"].decode("utf-8")}')
 
         for client in clients:
             if (client != cli_sock):
