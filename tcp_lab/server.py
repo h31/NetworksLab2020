@@ -7,7 +7,6 @@ HEADER_LENGTH = 10
 
 IP = "127.0.0.1"
 PORT = 5001
-sockets = []
 clients = {}
 
 
@@ -16,14 +15,12 @@ def main():
     server.bind((IP, PORT))
     server.listen(5)
     print("Start listenning")
-    sockets.append(server)
     while True:
         try:
             cli_sock, cli_addr = server.accept()
             nickname = receive_msg(cli_sock)
 
             if nickname:
-                sockets.append(cli_sock)
                 clients[cli_sock] = nickname
                 print(f"New client has connected")
                 code_n = f'{"+1":<{HEADER_LENGTH}}'.encode('utf-8')
@@ -54,7 +51,7 @@ def receive_msg(cli_sock):
     except ValueError:
         print("Type of header must be 'int'")
         return False
-        
+
     except:
         return False
 
@@ -64,7 +61,6 @@ def handler_client(cli_sock, nickname):
         if msg is False:
             cli_sock.shutdown(socket.SHUT_WR)
             cli_sock.close()
-            sockets.remove(cli_sock)
             del clients[cli_sock]
             note = f"{nickname['data'].decode('utf-8')} has disconnected"
             print(note)
