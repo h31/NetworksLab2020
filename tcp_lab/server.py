@@ -46,11 +46,15 @@ def receive_msg(cli_sock):
 
         if not len(msg_header):
             return False
-
+        
         msg_length = int(msg_header.decode('utf-8').strip())
 
         return {'header': msg_header, 'data': cli_sock.recv(msg_length)}
 
+    except ValueError:
+        print("Type of header must be 'int'")
+        return False
+        
     except:
         return False
 
