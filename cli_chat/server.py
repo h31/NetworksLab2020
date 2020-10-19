@@ -35,17 +35,19 @@ def server():
 	server_socket.listen()
 	print(f"Listening for connections on {IP}:{PORT}")
 
-	#Waiting for connections
 	while True:
 		client_socket, client_address = server_socket.accept()
-		user = recv_message(client_socket)
+		threading.Thread(target=new_connection, args=(client_socket, client_address, )).start()
 
-		if user:
-			clients[client_socket] = user
-			print(f"New connetion from {client_address[0]}:{client_address[1]} "
-			f"Username: {user['data'].decode(CODE)}")
-			#Thread for every users
-			threading.Thread(target=receiver, args=(client_socket, user, )).start()
+
+def new_connection(client_socket, client_address):
+	user = recv_message(client_socket)
+
+	if user:
+		clients[client_socket] = user
+		print(f"New connetion from {client_address[0]}:{client_address[1]} "
+		f"Username: {user['data'].decode(CODE)}")
+		receiver(client_socket, user)
 
 
 def recv_message(client_socket):
