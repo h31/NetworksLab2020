@@ -3,7 +3,7 @@ import threading
 import time
 
 CODE = 'utf-8'
-HEADER_LEN = 10
+HEADER_LEN = 16
 IP = 'localhost'
 PORT = 5001
 # Лист подключенных clients - socket это ключ, user header и name это данные

@@ -4,7 +4,7 @@ import time
 import sys
 
 CODE = 'utf-8'
-HEADER_LEN = 10
+HEADER_LEN = 16
 IP = 'localhost'
 PORT = 5001
 
@@ -77,11 +77,10 @@ def send(socket):
 
 
         except EOFError as e:
+            print("Incorrect input")
             continue
 
         except:
-            # socket.shutdown(socket.SHUT_RDWR)
-            # socket.close()
             exit(0)
             return
 
