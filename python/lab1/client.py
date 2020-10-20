@@ -35,14 +35,10 @@ def receive(socket):
         part_len = int(header.decode(CODE).strip())
         buf = b""
         while True:
-            if part_len <= 4096:
-                lbuf = socket.recv(part_len)
-                buf = buf + lbuf
+            lbuf = socket.recv(part_len - len(buf))
+            buf = buf + lbuf
+            if not lbuf:
                 break
-            else:
-                lbuf = socket.recv(4096)
-                part_len = part_len - 4096
-                buf = buf + lbuf
         return buf.decode(CODE)
 
 
