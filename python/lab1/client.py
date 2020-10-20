@@ -33,7 +33,17 @@ def receive(socket):
             print("Connection was closed by the server")
             sys.exit()
         part_len = int(header.decode(CODE).strip())
-        return socket.recv(part_len).decode(CODE)
+        buf = b""
+        while True:
+            if part_len <= 4096:
+                lbuf = socket.recv(part_len)
+                buf = buf + lbuf
+                break
+            else:
+                lbuf = socket.recv(4096)
+                part_len = part_len - 4096
+                buf = buf + lbuf
+        return buf.decode(CODE)
 
 
 def read(socket):
