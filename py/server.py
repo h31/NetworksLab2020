@@ -39,6 +39,9 @@ def recv_send_cli(cli_socket):
         msg_cli = format_msg(cli_socket, type_m, msg, time, name)
         send_to_client(cli_socket, type_m, name, msg_cli)
         if type_m == -1:
+            print(f"Client {name} OUT")
+            list_name.pop(client_list.index(cli_socket))
+            client_list.remove(cli_socket)
             return 0
 
 
@@ -46,11 +49,7 @@ def send_to_client(cli_socket, type_m, name, msg):
     for client in client_list:
         if client != cli_socket:
             length = f"{len(msg):<{SIZE}}".encode("UTF-8")
-            client.send(length + msg)
-        if type_m == -1:
-            print(f"Client {name} OUT")
-            list_name.pop(client_list.index(cli_socket))
-            client_list.remove(cli_socket)
+            client.send(length + msg)            
 
 def get_set_name(cli_socket, msg, type_m):
     if type_m == 2:
