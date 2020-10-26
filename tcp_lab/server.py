@@ -1,6 +1,5 @@
 # Server lab 2
 import socket
-import threading
 from datetime import datetime
 import sys
 import select
