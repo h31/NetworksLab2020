@@ -1,4 +1,4 @@
-# Client lab 1
+# Client lab 2
 import threading
 import socket
 from datetime import datetime
