@@ -15,7 +15,7 @@ def main():
         nickname_str = input("Enter your username: ")
         cli_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli_sock.connect((IP, PORT))
-
+        
         nickname_code = nickname_str.encode('utf-8')
         nickname_header = f"{len(nickname_code):<{HEADER_LENGTH}}".encode('utf-8')
         cli_sock.send(nickname_header + nickname_code)
@@ -41,6 +41,7 @@ def send_msg(cli_sock):
                 msg_code = msg.encode('utf-8')
                 msg_header = f"{len(msg_code):<{HEADER_LENGTH}}".encode('utf-8')
                 cli_sock.send(msg_header + msg_code)
+    
     except:
         cli_sock.shutdown(socket.SHUT_WR)
         cli_sock.close()
@@ -55,6 +56,7 @@ def receive_msg(cli_sock):
             print('Connection lost')
             cli_sock.shutdown(socket.SHUT_WR)
             cli_sock.close()
+            sys.exit()
             break
 
         if snickname_header.decode('utf-8').strip() == '+1':
