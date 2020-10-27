@@ -13,6 +13,8 @@ Client has to enter a name to use:
 Message:
 - A message from client will include``` message's length, message's type, and message```.
 
+- Time will be convert to timestamp on server and will be shown on client base on client's timezone.
+
 - A message from server only has ```message and its length```.
 
 - Can send a large text (```max=9999``` characters).

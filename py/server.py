@@ -1,11 +1,12 @@
 import socket
 import threading
-from datetime import datetime,timezone
 import os
 import random
+import signal
+from datetime import datetime,timezone
 
 HOST = "127.0.0.1"
-PORT = 5001
+PORT = 5003
 SIZE = 4
 client_list = []
 list_name = []
@@ -52,31 +53,37 @@ def send_to_client(cli_socket, type_m, name, msg):
 
 def get_set_name(cli_socket, msg, type_m):
     if type_m == 2:
-        indx = client_list.index(cli_socket)
-        while 1:
-            temp = msg + "-" + str(random.randint(0,100))
-            if temp not in list_name:
-                break
-        list_name[indx] = temp
+        indx = client_list.index(cli_socket)  
+        list_name[indx] = msg
     return list_name[client_list.index(cli_socket)]
-
 
 def format_msg(cli_socket, type_m, msg, time, name):
     new_format = ""
     #'2'<-> join message
     if type_m == 2:
-        new_format = f"{time}:\t<<<{name} JOIN>>>"
+        new_format = f"{time}:\t---{name} JOIN---"
     #'1'<-> normal message
     elif type_m == 1:
         new_format = f"{time}[{name}]:{msg}"
     #'-1'<-> out message
     elif type_m == -1:
-        new_format = f"{time}:\t<<<{name}>>> OUT"
+        new_format = f"{time}:\t---{name} OUT---"
     return new_format.encode("UTF-8")
 
+def server_down():
+    for cli in client_list:
+        cli.send(f"-1".encode('UTF-8'))
+        sv_socket.close()
+    os._exit(0)
+
+def signal_handler(signal, frame):
+    server_down()
+
+sv_socket=socket.socket()
 
 # server
 def sv():
+    global sv_socket
     sv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # reusable right after sudden shutdown
     sv_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -84,15 +91,10 @@ def sv():
     sv_socket.listen(5)
     accept_th = threading.Thread(target=accept_cli, args=[sv_socket])
     accept_th.start()
-    # keyboard Interrupt
-    try:
-        while 1:
-            continue
-    except KeyboardInterrupt:
-        for cli in client_list:
-            cli.send(f"-1".encode())
-        sv_socket.close()
-        os._exit(0)
-
+    signal.signal(signal.SIGINT, signal_handler)
+    while 1:
+        if input() =="!q":
+            server_down()
+       
 
 sv()
