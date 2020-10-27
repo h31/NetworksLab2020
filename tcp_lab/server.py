@@ -54,6 +54,7 @@ def broadcast(msg, cli_sock):
 
 def notify(typeOfn, nickname, cli_sock):
     code_n = f'{typeOfn:<{HEADER_LENGTH}}'.encode('utf-8')
+    notice = ""
     if (typeOfn == '+1'):
         notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode(
             'utf-8')
