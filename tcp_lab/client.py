@@ -11,23 +11,21 @@ PORT = 5001
 
 
 def main():
+    nickname_str = input("Enter your username: ")
+    cli_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    cli_sock.connect((IP, PORT))
+
+    nickname_code = nickname_str.encode('utf-8')
+    nickname_header = f"{len(nickname_code):<{HEADER_LENGTH}}".encode('utf-8')
+    cli_sock.send(nickname_header + nickname_code)
+
+    send_thread = threading.Thread(target=send_msg, args=(cli_sock, ))
+    receive_thread = threading.Thread(target=receive_msg, args=(cli_sock, ))
     try:
-        nickname_str = input("Enter your username: ")
-        cli_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        cli_sock.connect((IP, PORT))
-
-        nickname_code = nickname_str.encode('utf-8')
-        nickname_header = f"{len(nickname_code):<{HEADER_LENGTH}}".encode('utf-8')
-        cli_sock.send(nickname_header + nickname_code)
-
-        send_thread = threading.Thread(target=send_msg, args=(cli_sock, ))
-        receive_thread = threading.Thread(target=receive_msg, args=(cli_sock, ))
         send_thread.start()
         receive_thread.start()
 
     except KeyboardInterrupt:
-        send_thread.join()
-        receive_thread.join()
         cli_sock.shutdown(socket.SHUT_WR)
         cli_sock.close()
         sys.exit()

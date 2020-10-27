@@ -16,8 +16,8 @@ def main():
     server.bind((IP, PORT))
     server.listen(5)
     print("Start listenning")
-    while True:
-        try:
+    try:
+        while True:
             cli_sock, cli_addr = server.accept()
             nickname = receive_msg(cli_sock)
 
@@ -28,11 +28,10 @@ def main():
                 notify('+1', nickname, cli_sock)
                 handler_thread = threading.Thread(target=handler_client, args=(cli_sock, nickname, ))
                 handler_thread.start()
-        except KeyboardInterrupt:
-            handler_thread.join()
-            server.shutdown(socket.SHUT_WR)
-            server.close()
-            sys.exit()
+    except KeyboardInterrupt:
+        server.shutdown(socket.SHUT_WR)
+        server.close()
+        sys.exit()
 
 def broadcast(msg, cli_sock):
     for client in clients:
@@ -41,6 +40,7 @@ def broadcast(msg, cli_sock):
 
 def notify(typeOfn, nickname, cli_sock):
     code_n = f'{typeOfn:<{HEADER_LENGTH}}'.encode('utf-8')
+    notice = ""
     if (typeOfn == '+1'):
         notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode('utf-8')
     if (typeOfn == '-1'):
