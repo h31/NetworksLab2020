@@ -1,5 +1,6 @@
 import socket
 import threading as th
+import time
 import sys
 
 HEADER = 10
@@ -10,8 +11,6 @@ DISCONNECT = '2'
 SEND = '3'
 CHANGE_NICK = '4'
 
-clients = {}
-
 def setup_client():
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
@@ -21,30 +20,32 @@ def setup_client():
     f"\n3 - {hostname}({ip_address})")
     while True:
         mode = input()
-        if (mode != '1') & (mode != '2'): 
+        if (mode != '1') & (mode != '2') & (mode != '3'): 
             print("Bad input")
             continue
         elif mode == '1':
-                while True:
-                    ip_address = input("Format - x.x.x.x: ")
-                    try:
-                        socket.inet_aton(ip_address)
-                        break
-                    except socket.error:
-                        print("Bad input")
-                        continue
+            while True:
+                ip_address = input("Format - x.x.x.x: ")
+                try:
+                    socket.inet_aton(ip_address)
+                    break
+                except socket.error:
+                    print("Bad input")
+                    continue
                 break
         elif mode == '2':
                 ip_address = 'localhost'
                 break
-        else: 
+        else:
             break
-    while True:
-        port = int(input("Enter port(1024 - 65535):"))
-        if(1024 > port) | (port > 65535):
-            print("Bad input")
-            continue
-        else: break
+
+    port = int(input("Enter port(1024 - 65535):"))
+    if(1024 > port):
+        print("Warning! Reserved port")
+        port = 1024
+    elif(port > 65535):
+        print("Warning! Out of range")
+        port = 65535
 
     client(ip_address, port)
 
@@ -55,41 +56,59 @@ def client(IP, PORT):
 
     print(f"Connection with {IP}:{PORT} established.")
 
-    username = input("Enter username:").encode(ENCODE)
-    client_socket.send(f'{len(AUTHORIZATION):<{HEADER}}'.encode(ENCODE) + AUTHORIZATION.encode(ENCODE))
-    client_socket.send(f'{len(username):<{HEADER}}'.encode(ENCODE) + username)
-    print(f"Authorization complete.")
+    while True:
+        username = input("Enter username:")
+        if username != '':
+            client_socket.send(f'{len(AUTHORIZATION):<{HEADER}}'.encode(ENCODE) + AUTHORIZATION.encode(ENCODE))
+            client_socket.send(f'{len(username):<{HEADER}}'.encode(ENCODE) + username.encode(ENCODE))
+            print(f"Authorization complete.")
+            break
 
     th.Thread(target = recv_handler, args = (client_socket, )).start()
     th.Thread(target = send_handler, args = (client_socket, )).start()
 
 def read_package(client_socket):
     header = client_socket.recv(HEADER)
-    if not len(header):
-        print(f"Connection was closed by server.")
-        sys.exit()
+    if not header:
+        return False
+
+    while(len(header) != HEADER):
+        header_tmp = client_socket.recv(HEADER - len(header))
+        header += header_tmp
+    
     data_len = int(header.decode(ENCODE))
-    return client_socket.recv(data_len).decode(ENCODE)
+
+    data = client_socket.recv(data_len)
+    if not data:
+        return False
+
+    while(len(data) != data_len):
+        data_tmp = client_socket.recv(HEADER - len(data))
+        data += data_tmp
+
+    return data.decode(ENCODE)
+
+def convert_time(_time):
+    time_str = time.strptime(_time, "%H:%M:%S")
+    seconds = time_str.tm_sec + time_str.tm_min*60 + time_str.tm_hour*3600
+    return time.strftime("%H:%M:%S", (time.localtime(seconds)))
 
 def recv_handler(client_socket):
-    while True:
+    while True:      
         try:
             username = read_package(client_socket)
             message = read_package(client_socket)
-            time = read_package(client_socket)
-            
-            print(f"<{time}> [{username}]: {message}")
+            send_time = read_package(client_socket)
+
+            print(f"<{convert_time(send_time)}> [{username}]: {message}")
         except OSError:
             print(f"Connection was closed.")
-            return
-        except:
             client_socket.shutdown(socket.SHUT_RDWR)
             client_socket.close()
-            sys.exit()
+            return
 
 def send_handler(client_socket):
-    print
-    print(f"Available commands:\n"
+    print(f"\nAvailable commands:\n"
     f"!disconnect - close connection and leave chat\n"
     f"!change - change current nickaname\n")
     while True:
@@ -109,6 +128,9 @@ def send_handler(client_socket):
                 client_socket.send(f'{len(SEND):<{HEADER}}'.encode(ENCODE) + SEND.encode(ENCODE))
                 client_socket.send(f"{len(message):<{HEADER}}".encode(ENCODE) + message)
         except OSError:
+            print(f"Connection was closed.")
+            client_socket.shutdown(socket.SHUT_RDWR)
+            client_socket.close()
             return
             
 setup_client()
