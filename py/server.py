@@ -1,6 +1,6 @@
 import socket
 import threading
-from datetime import datetime
+from datetime import datetime,timezone
 import os
 import random
 
@@ -20,7 +20,6 @@ def accept_cli(sv_socket):
         send_th = threading.Thread(target=recv_send_cli, args=[cli_socket])
         send_th.start()
 
-
 # recv and send to all client except one(who send)
 def recv_send_cli(cli_socket):
     while True:
@@ -34,7 +33,7 @@ def recv_send_cli(cli_socket):
         # set name
         name = get_set_name(cli_socket, msg, type_m)
         # set time
-        time = datetime.now().strftime("%H:%M")
+        time = str(datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()).ljust(20)
         # change message format
         msg_cli = format_msg(cli_socket, type_m, msg, time, name)
         send_to_client(cli_socket, type_m, name, msg_cli)
@@ -66,13 +65,13 @@ def format_msg(cli_socket, type_m, msg, time, name):
     new_format = ""
     #'2'<-> join message
     if type_m == 2:
-        new_format = f"\t<<<{name} JOIN>>>"
+        new_format = f"{time}:\t<<<{name} JOIN>>>"
     #'1'<-> normal message
     elif type_m == 1:
-        new_format = f"<{time}>[{name}]:{msg}"
+        new_format = f"{time}[{name}]:{msg}"
     #'-1'<-> out message
     elif type_m == -1:
-        new_format = f"\t<<<{name}>>> OUT"
+        new_format = f"{time}:\t<<<{name}>>> OUT"
     return new_format.encode("UTF-8")
 
 

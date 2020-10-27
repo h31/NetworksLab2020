@@ -1,6 +1,7 @@
 import os
 import threading
 import socket
+from datetime import datetime, timezone
 
 # import readline
 HOST = "127.0.0.1"
@@ -45,8 +46,10 @@ def rc_fr_sv(cli_socket):
             os._exit(0)
         else:
             length_msg = int(length_msg)
-            msg = cli_socket.recv(length_msg).decode("UTF-8")
-            print(msg)
+            time =float(cli_socket.recv(20).decode("UTF-8"))
+            time = datetime.fromtimestamp(time).strftime("%H:%M")
+            msg = cli_socket.recv(length_msg-20).decode("UTF-8")
+            print(f'<{time}>{msg}')
 
 
 # client
