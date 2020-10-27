@@ -3,14 +3,13 @@ import threading
 import os
 import random
 import signal
-from datetime import datetime,timezone
+from datetime import datetime, timezone
 
 HOST = "127.0.0.1"
 PORT = 5003
 SIZE = 4
 client_list = []
 list_name = []
-
 # accept client_socket
 def accept_cli(sv_socket):
     while True:
@@ -20,6 +19,7 @@ def accept_cli(sv_socket):
         print("Accepted socket")
         send_th = threading.Thread(target=recv_send_cli, args=[cli_socket])
         send_th.start()
+
 
 # recv and send to all client except one(who send)
 def recv_send_cli(cli_socket):
@@ -34,7 +34,9 @@ def recv_send_cli(cli_socket):
         # set name
         name = get_set_name(cli_socket, msg, type_m)
         # set time
-        time = str(datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()).ljust(20)
+        time = str(
+            datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
+        ).ljust(20)
         # change message format
         msg_cli = format_msg(cli_socket, type_m, msg, time, name)
         send_to_client(cli_socket, type_m, name, msg_cli)
@@ -49,38 +51,42 @@ def send_to_client(cli_socket, type_m, name, msg):
     for client in client_list:
         if client != cli_socket:
             length = f"{len(msg):<{SIZE}}".encode("UTF-8")
-            client.send(length + msg)            
+            client.send(length + msg)
+
 
 def get_set_name(cli_socket, msg, type_m):
     if type_m == 2:
-        indx = client_list.index(cli_socket)  
+        indx = client_list.index(cli_socket)
         list_name[indx] = msg
     return list_name[client_list.index(cli_socket)]
+
 
 def format_msg(cli_socket, type_m, msg, time, name):
     new_format = ""
     #'2'<-> join message
     if type_m == 2:
-        new_format = f"{time}:\t---{name} JOIN---"
+        new_format = f"{time}\t---{name} JOIN---"
     #'1'<-> normal message
     elif type_m == 1:
         new_format = f"{time}[{name}]:{msg}"
     #'-1'<-> out message
     elif type_m == -1:
-        new_format = f"{time}:\t---{name} OUT---"
+        new_format = f"{time}\t---{name} OUT---"
     return new_format.encode("UTF-8")
+
 
 def server_down():
     for cli in client_list:
-        cli.send(f"-1".encode('UTF-8'))
+        cli.send(f"-1".encode("UTF-8"))
         sv_socket.close()
     os._exit(0)
+
 
 def signal_handler(signal, frame):
     server_down()
 
-sv_socket=socket.socket()
 
+sv_socket = socket.socket()
 # server
 def sv():
     global sv_socket
@@ -93,8 +99,8 @@ def sv():
     accept_th.start()
     signal.signal(signal.SIGINT, signal_handler)
     while 1:
-        if input() =="!q":
+        if input() == "!q":
             server_down()
-       
+
 
 sv()
