@@ -2,7 +2,8 @@
 import socket
 import threading
 from datetime import datetime
-import sys
+import signal
+import os
 
 HEADER_LENGTH = 10
 
@@ -29,9 +30,12 @@ def main():
                 handler_thread = threading.Thread(target=handler_client, args=(cli_sock, ))
                 handler_thread.start()
     except KeyboardInterrupt:
+        for cl in clients:
+            cl.shutdown(socket.SHUT_WR)
+            cl.close()
         server.shutdown(socket.SHUT_WR)
         server.close()
-        sys.exit()
+        os._exit(0)
 
 def broadcast(msg, cli_sock):
     for client in clients:

@@ -3,7 +3,8 @@ import threading
 import socket
 from datetime import datetime
 import time
-import sys
+import signal
+import os
 
 HEADER_LENGTH = 10
 
@@ -15,23 +16,17 @@ def main():
     nickname_str = input("Enter your username: ")
     cli_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cli_sock.connect((IP, PORT))
+    def catch_interrupt(signal, frame):
+        cli_sock.shutdown(socket.SHUT_WR)
+        cli_sock.close()
+        os._exit(0)
 
+    signal.signal(signal.SIGINT, catch_interrupt)
     nickname_code = nickname_str.encode('utf-8')
     nickname_header = f"{len(nickname_code):<{HEADER_LENGTH}}".encode('utf-8')
     cli_sock.send(nickname_header + nickname_code)
-
-    send_thread = threading.Thread(target=send_msg, args=(cli_sock, ))
     receive_thread = threading.Thread(target=receive_msg, args=(cli_sock, ))
-    try:
-        send_thread.start()
-        receive_thread.start()
-
-    except KeyboardInterrupt:
-        cli_sock.shutdown(socket.SHUT_WR)
-        cli_sock.close()
-        sys.exit()
-        
-def send_msg(cli_sock):
+    receive_thread.start()
     try:
         while True:
             msg = input()
@@ -44,9 +39,8 @@ def send_msg(cli_sock):
 
                 cli_sock.send(msg_header + msg_code + send_time_header + send_time)
     except:
-        cli_sock.shutdown(socket.SHUT_WR)
-        cli_sock.close()
-        sys.exit()
+        print("Sever has been shutdown")
+        os._exit(0)
 
 
 def receive_msg(cli_sock):
