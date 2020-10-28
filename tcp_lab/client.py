@@ -1,4 +1,4 @@
-# Client lab 1
+# Client lab 2
 import threading
 import socket
 from datetime import datetime
@@ -39,6 +39,7 @@ def send_msg(cli_sock):
                 msg_code = msg.encode('utf-8')
                 msg_header = f"{len(msg_code):<{HEADER_LENGTH}}".encode('utf-8')
                 cli_sock.send(msg_header + msg_code)
+    
     except:
         cli_sock.shutdown(socket.SHUT_WR)
         cli_sock.close()
@@ -53,6 +54,7 @@ def receive_msg(cli_sock):
             print('Connection lost')
             cli_sock.shutdown(socket.SHUT_WR)
             cli_sock.close()
+            sys.exit()
             break
 
         if snickname_header.decode('utf-8').strip() == '+1':
