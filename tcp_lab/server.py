@@ -23,10 +23,10 @@ def main():
 
             if nickname:
                 clients[cli_sock] = nickname
-                current_time = datetime.now().strftime("%H:%M:%S")
+                current_time = datetime.now().strftime("%H:%M")
                 print(f"At {current_time} New client has connected")
-                notify('+1', nickname, cli_sock)
-                handler_thread = threading.Thread(target=handler_client, args=(cli_sock, nickname, ))
+                notify('+1', cli_sock)
+                handler_thread = threading.Thread(target=handler_client, args=(cli_sock, ))
                 handler_thread.start()
     except KeyboardInterrupt:
         server.shutdown(socket.SHUT_WR)
@@ -38,8 +38,9 @@ def broadcast(msg, cli_sock):
         if client != cli_sock:
             client.send(msg)
 
-def notify(typeOfn, nickname, cli_sock):
+def notify(typeOfn, cli_sock):
     code_n = f'{typeOfn:<{HEADER_LENGTH}}'.encode('utf-8')
+    nickname = clients[cli_sock]
     notice = ""
     if (typeOfn == '+1'):
         notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode('utf-8')
@@ -55,35 +56,38 @@ def receive_msg(cli_sock):
 
         if not len(msg_header):
             return False
-        
+
         msg_length = int(msg_header.decode('utf-8').strip())
 
         return {'header': msg_header, 'data': cli_sock.recv(msg_length)}
-
+    
     except ValueError:
         print("Type of header must be 'int'")
         return False
-
+    
     except:
         return False
-
-def handler_client(cli_sock, nickname):
+      
+def handler_client(cli_sock):
     while True:
         msg = receive_msg(cli_sock)
+        nickname = clients[cli_sock]
         if msg is False:
             cli_sock.shutdown(socket.SHUT_WR)
-            cli_sock.close()
-            del clients[cli_sock]
+            cli_sock.close()         
             note = f"{nickname['data'].decode('utf-8')} has disconnected"
             print(note)
-            notify('-1', nickname, cli_sock)
+            notify('-1', cli_sock)
+            del clients[cli_sock]
             return None
         
-        current_time = datetime.now().strftime("%H:%M:%S")
+        send_time = receive_msg(cli_sock)
+        
+        current_time = datetime.now().strftime("%H:%M")
 
         print(f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg["data"].decode("utf-8")}')
 
-        full_msg = nickname['header'] + nickname['data'] + msg['header'] + msg['data']
+        full_msg = nickname['header'] + nickname['data'] + msg['header'] + msg['data'] + send_time['header'] + send_time['data']
         broadcast(full_msg, cli_sock)
 
 

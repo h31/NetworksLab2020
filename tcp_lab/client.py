@@ -2,6 +2,7 @@
 import threading
 import socket
 from datetime import datetime
+import time
 import sys
 
 HEADER_LENGTH = 10
@@ -38,7 +39,10 @@ def send_msg(cli_sock):
             if msg:
                 msg_code = msg.encode('utf-8')
                 msg_header = f"{len(msg_code):<{HEADER_LENGTH}}".encode('utf-8')
-                cli_sock.send(msg_header + msg_code)
+                send_time = str(time.time()).encode('utf-8')
+                send_time_header = f"{len(send_time):<{HEADER_LENGTH}}".encode('utf-8')
+
+                cli_sock.send(msg_header + msg_code + send_time_header + send_time)
     except:
         cli_sock.shutdown(socket.SHUT_WR)
         cli_sock.close()
@@ -74,8 +78,13 @@ def receive_msg(cli_sock):
         msg_header = cli_sock.recv(HEADER_LENGTH)
         msg_length = int(msg_header.decode('utf-8').strip())
         msg = cli_sock.recv(msg_length).decode('utf-8')
-        current_time = datetime.now().strftime("%H:%M:%S")
-        print(f'<{current_time}> [{snickname}]: {msg}')
+
+        send_time_header = cli_sock.recv(HEADER_LENGTH)
+        time_length = int(send_time_header.decode('utf-8').strip())
+        send_time = float(cli_sock.recv(time_length).decode('utf-8'))
+        str_time = datetime.fromtimestamp(send_time).strftime("%H:%M")
+        
+        print(f'<{str_time}> [{snickname}]: {msg}')
 
 
 if __name__ == '__main__':
