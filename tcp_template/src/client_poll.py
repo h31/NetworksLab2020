@@ -36,6 +36,7 @@ class ThreadReceive(threading.Thread):
             print(message_time + "[" + name + "]: " + data.decode("UTF-8"))
 
 
+#SERVER = "51.15.130.137"
 SERVER = "127.0.0.1"
 PORT = 5001
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -17,6 +17,8 @@ def receive_msg(sock):
     bytes_recd = 0
     while bytes_recd < msg_length:
         chunk = sock.recv(msg_length)
+        print("Chunk is")
+        print(chunk)
         if chunk == b'':
             raise RuntimeError("socket connection broken")
         if chunk == "leave chat":
@@ -35,6 +37,8 @@ def main():
     port = 5001
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((localhost, port))
+    server.setblocking(True)
+    print(server.getblocking())
     print("Server started")
     server.listen(5)
     sockets.append(server)
@@ -44,13 +48,13 @@ def main():
         for sock in r:
             if sock == server:
                 client_sock, client_address = server.accept()
+                client_sock.setblocking(True)
                 sockets.append(client_sock)
                 clients.append(client_sock)
                 name = receive_name(client_sock)
+                print(name)
             else:
                 message = receive_msg(sock)
-                login = name[sock]
-                print(login)
                 for c in clients:
                     if c != sock:
                         c.send(bytes(str(message), 'UTF-8'))
