@@ -8,8 +8,6 @@ Client has to enter a name to use:
 
 - If the client doesn't enter his name. It will be `default: anony `
 
-- Name of client will be changed into: `name + randint(100)`.
-
 Message:
 
 - A message from client will include` message's length, message's type, and message`.
