@@ -1,13 +1,13 @@
 # Server lab 2
 import socket
 from datetime import datetime
-import sys
+import os
 import select
 
 HEADER_LENGTH = 10
 
 IP = "127.0.0.1"
-PORT = 5001
+PORT = 5002
 clients = {}
 sockets = []
 
@@ -30,9 +30,9 @@ def main():
                     if nickname:
                         sockets.append(cli_sock)
                         clients[cli_sock] = nickname
-                        current_time = datetime.now().strftime("%H:%M:%S")
+                        current_time = datetime.now().strftime("%H:%M")
                         print(f"At {current_time} New client has connected")
-                        notify('+1', nickname, cli_sock)
+                        notify('+1', cli_sock)
                     else:
                         continue
                 else:
@@ -41,9 +41,12 @@ def main():
                         continue
 
     except KeyboardInterrupt:
+        for cl in clients:
+            cl.shutdown(socket.SHUT_WR)
+            cl.close()
         server.shutdown(socket.SHUT_WR)
         server.close()
-        sys.exit()
+        os._exit(0)
 
 def broadcast(msg, cli_sock):
     for client in clients:
@@ -51,8 +54,9 @@ def broadcast(msg, cli_sock):
             client.send(msg)
 
 
-def notify(typeOfn, nickname, cli_sock):
+def notify(typeOfn, cli_sock):
     code_n = f'{typeOfn:<{HEADER_LENGTH}}'.encode('utf-8')
+    nickname = clients[cli_sock]
     notice = ""
     if (typeOfn == '+1'):
         notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode(
@@ -93,19 +97,20 @@ def handler_client(cli_sock):
         cli_sock.shutdown(socket.SHUT_WR)
         cli_sock.close()
         sockets.remove(cli_sock)
-        del clients[cli_sock]
         note = f"{nickname['data'].decode('utf-8')} has disconnected"
         print(note)
-        notify('-1', nickname, cli_sock)
+        notify('-1', cli_sock)
+        del clients[cli_sock]
         return None
 
-    current_time = datetime.now().strftime("%H:%M:%S")
+    send_time = receive_msg(cli_sock)
+
+    current_time = datetime.now().strftime("%H:%M")
 
     print(
         f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg["data"].decode("utf-8")}')
 
-    full_msg = nickname['header'] + \
-        nickname['data'] + msg['header'] + msg['data']
+    full_msg = nickname['header'] + nickname['data'] + msg['header'] + msg['data'] + send_time['header'] + send_time['data']
     broadcast(full_msg, cli_sock)
 
 
