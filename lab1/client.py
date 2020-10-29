@@ -7,12 +7,11 @@ from datetime import datetime
 
 message_time = 0
 SERVER_MASSAGE = "SERVER DEAD"
-
 HEADER = 512
 PORT = 1330
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
-SERVER = socket.gethostbyname(socket.gethostname())
+SERVER = "51.15.130.137"
 ADDR = (SERVER, PORT)
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
