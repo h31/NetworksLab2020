@@ -39,7 +39,6 @@ def main():
 
                 cli_sock.send(msg_header + msg_code + send_time_header + send_time)
     except:
-        print("Sever has been shutdown")
         os._exit(0)
 
 
@@ -48,10 +47,10 @@ def receive_msg(cli_sock):
         snickname_header = cli_sock.recv(HEADER_LENGTH)
 
         if not len(snickname_header):
-            print('Connection lost')
+            print("Sever has been shutdown")
             cli_sock.shutdown(socket.SHUT_WR)
             cli_sock.close()
-            break
+            os._exit(0)
 
         if snickname_header.decode('utf-8').strip() == '+1':
             notice_length = int(cli_sock.recv(HEADER_LENGTH).decode('utf-8').strip())

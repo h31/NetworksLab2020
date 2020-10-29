@@ -2,7 +2,6 @@
 import socket
 import threading
 from datetime import datetime
-import signal
 import os
 
 HEADER_LENGTH = 10
