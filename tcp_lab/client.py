@@ -1,4 +1,4 @@
-# Client lab 1
+# Client lab 2
 import threading
 import socket
 from datetime import datetime
@@ -9,7 +9,7 @@ import os
 HEADER_LENGTH = 10
 
 IP = "127.0.0.1"
-PORT = 5001
+PORT = 5002
 
 
 def main():
@@ -40,7 +40,7 @@ def main():
                 cli_sock.send(msg_header + msg_code + send_time_header + send_time)
     except:
         os._exit(0)
-
+    
 
 def receive_msg(cli_sock):
     while True:
