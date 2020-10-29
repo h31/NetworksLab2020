@@ -3,9 +3,9 @@ import sys
 import threading
 from datetime import datetime
 
-HEADER = 64
-PORT = 8080
-SERVER = socket.gethostbyname(socket.gethostname())
+HEADER = 512
+PORT = 1330
+SERVER = "0.0.0.0"
 ADDR = (SERVER, PORT)
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
@@ -23,7 +23,7 @@ def print_time(addr, msg):
     new_msg.pop(0)
     msg = ' '.join(new_msg)
     return (f"<{str(datetime.now().hour)}:{str(datetime.now().minute)}>" \
-            f" [ {dict.get(addr[1])}]: {msg}")
+            f" [ {dict.get(addr[1])} ]: {msg}")
 
 
 def print_name(addr, msg):
@@ -54,23 +54,28 @@ def handle_client(conn, addr):
     while connected:
         msg_length = conn.recv(HEADER).decode(FORMAT)
         if msg_length:
-            msg_length = int(msg_length)
-            msg = conn.recv(msg_length).decode(FORMAT)
-            if msg == DISCONNECT_MESSAGE:
-                send_all_world(conn, addr, msg)
-                dictConn.remove(conn)
-                print('this person remove')
-            elif msg == SERVER_MASSAGE:
-                connected = False
-                try:
+                msg_length = int(msg_length)
+                msg = conn.recv(msg_length)
+                nnn = msg_length-len(msg)
+                if nnn !=0:
+                    msg += conn.recv(msg_length)
+                msg = msg.decode(FORMAT)
+                if msg == DISCONNECT_MESSAGE:
+                    send_all_world(conn, addr, msg)
                     dictConn.remove(conn)
-                except:
-                    sys.exit(0)
-            elif addr[1] not in dict.keys():
-                registration(conn, addr[1], msg)
-            else:
-                print(print_time(addr, msg))
-                send_all_world(conn, addr, msg)
+                    print('this person remove')
+                elif msg == SERVER_MASSAGE:
+                    connected = False
+                    try:
+                        dictConn.remove(conn)
+                    except:
+                        sys.exit(0)
+                elif addr[1] not in dict.keys():
+                    registration(conn, addr[1], msg)
+                else:
+                    print(print_time(addr, msg))
+                    send_all_world(conn, addr, msg)
+
     conn.close()
 
 

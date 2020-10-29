@@ -4,17 +4,12 @@ import threading
 import time
 from datetime import datetime
 
-import tzlocal as tzlocal
-
-from tzlocal import get_localzone
-
-import pytz as pytz
 
 message_time = 0
 SERVER_MASSAGE = "SERVER DEAD"
 
-HEADER = 64
-PORT = 8080
+HEADER = 512
+PORT = 1330
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
 SERVER = socket.gethostbyname(socket.gethostname())
@@ -35,7 +30,7 @@ def read_listen(check):
             break
         else:
             msg = input()
-            while msg.find(']: ') != -1 or msg.find('[ ') != -1:
+            while msg.find(' ]: ') != -1 or msg.find('[ ') != -1:
                 msg = input("Don't use '[ ' or ']: repeat please!' \n"
                                    'Input massage:')
             if msg == DISCONNECT_MESSAGE:
@@ -77,7 +72,7 @@ def name_set(name):
 def read_all_world(check):
     while check:
         try:
-            data = client.recv(2048).decode(FORMAT)
+            data = client.recv(10000).decode(FORMAT)
             if data == SERVER_MASSAGE:
                 print(data)
                 read_listen(False)
@@ -88,7 +83,7 @@ def read_all_world(check):
                 ooo.pop(0)
                 time_zone = ooo[0]
                 ooo.pop(0)
-                client_timezone = - time.timezone / 3600
+                client_timezone = - time.timezone/3600
                 if time_zone != str(client_timezone):
                     number1 = client_timezone - float(time_zone)
                     hour, minute = current_time.split(':')[0], current_time.split(':')[1]
@@ -121,10 +116,10 @@ def read_all_world(check):
             sys.exit(0)
 
 
-clientText = input("Don't use '[ ' or ']: ' in the name or massage \n"
+clientText = input("Don't use '[ ' or ' ]: ' in the name or massage \n"
                    'Input your name:')
 while clientText.find(']: ') != -1 or clientText.find('[ ') != -1:
-    clientText = input("Don't use '[ ' or ']: repeat please!' \n"
+    clientText = input("Don't use '[ ' or ' ]: repeat please!' \n"
                        'Input your name:')
 send_server(clientText)
 potok = threading.Thread(target=read_all_world, args=(True,))
