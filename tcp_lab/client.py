@@ -52,7 +52,9 @@ def receive_msg(cli_sock):
             cli_sock.close()
             os._exit(0)
 
-        if snickname_header.decode('utf-8').strip() == '+1' or snickname_header.decode('utf-8').strip() == '-1':
+        note = snickname_header.decode('utf-8').strip()
+
+        if note == '+1' or note == '-1':
             notice_length = int(cli_sock.recv(HEADER_LENGTH).decode('utf-8').strip())
             notice = cli_sock.recv(notice_length).decode('utf-8')
             print(f'{notice}')
