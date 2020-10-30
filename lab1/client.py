@@ -7,11 +7,12 @@ from datetime import datetime
 
 message_time = 0
 SERVER_MASSAGE = "SERVER DEAD"
-HEADER = 512
+
+HEADER = 64
 PORT = 1330
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = "!DISCONNECT"
-SERVER = "51.15.130.137"
+SERVER = socket.gethostbyname(socket.gethostname())
 ADDR = (SERVER, PORT)
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -116,6 +117,7 @@ def read_all_world(check):
 
 
 clientText = input("Don't use '[ ' or ' ]: ' in the name or massage \n"
+                   "no more than 2000 characters. \n"
                    'Input your name:')
 while clientText.find(']: ') != -1 or clientText.find('[ ') != -1:
     clientText = input("Don't use '[ ' or ' ]: repeat please!' \n"

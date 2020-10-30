@@ -3,8 +3,7 @@ import sys
 import threading
 from datetime import datetime
 
-
-HEADER = 512
+HEADER = 64
 PORT = 1330
 SERVER = "0.0.0.0"
 ADDR = (SERVER, PORT)
@@ -58,8 +57,9 @@ def handle_client(conn, addr):
                 msg_length = int(msg_length)
                 msg = conn.recv(msg_length)
                 nnn = msg_length-len(msg)
-                if nnn !=0:
+                while nnn !=0:
                     msg += conn.recv(msg_length)
+                    nnn = msg_length - len(msg)
                 msg = msg.decode(FORMAT)
                 if msg == DISCONNECT_MESSAGE:
                     send_all_world(conn, addr, msg)
