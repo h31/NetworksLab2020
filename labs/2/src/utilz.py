@@ -34,6 +34,10 @@ class Header:
         yield 'time', self.time_len
         yield 'name', self.name_len
 
+    @property
+    def total_size(self):
+        return self.msg_len + self.time_len + self.name_len
+
 
 def msg_content(t, name='', msg='', time=time.time()):
     #           protocol package
@@ -49,7 +53,6 @@ def msg_content(t, name='', msg='', time=time.time()):
         f'{len(name.encode()):<{part_size}}'
     return (header + msg + str(time) + name).encode()
 
-
 def _recv_msg(cs, size):
     data = b''
     while len(data) < size:
@@ -57,3 +60,4 @@ def _recv_msg(cs, size):
         if len(data) == 0:
             break  # err
     return data.decode()
+

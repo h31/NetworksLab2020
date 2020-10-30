@@ -4,43 +4,58 @@ import time
 import utilz
 
 sockets = []
-clients = []
+clients = {}
 
 
 def new_client(server_socket):
     client_socket, addr = server_socket.accept()
     sockets.append(client_socket)
-    clients.append(client_socket)
+    clients[client_socket] = dict()
     print(f'New connection from: {addr}')
 
 
 def recv_msg(cs):
     try:
-        req = utilz._recv_msg(cs, utilz.HEADER_SIZE)
-        if not req:
-            close_conn(cs)
+        if not clients[cs].get('header'):
+            header_data = clients[cs].get('header_data', b'')
+            clients[cs]['header_data'] = header_data + cs.recv(utilz.HEADER_SIZE - len(header_data))
+            if len(clients[cs]['header_data']) < utilz.HEADER_SIZE:
+                return False
+
+            print(f'{clients[cs]["header_data"]=}')
+
+            clients[cs]['header'] = utilz.Header(clients[cs]['header_data'].decode())
+            del clients[cs]['header_data']
+
+        header = clients[cs]['header']
+        body_data = clients[cs].get('body_data', b'')
+        clients[cs]['body_data'] = body_data + cs.recv(header.total_size - len(body_data))
+        if len(clients[cs]['body_data']) < header.total_size:
             return False
 
-        print(f'{req=}')
+        print(f'{clients[cs]["body_data"]=}')
 
-        header = utilz.Header(req)
         body = {
-            'type': header.type,
+            'type': header.type
         }
 
+        offset = 0
         for _type, size in header.type_to_len:
-            data = b''
-            print(f'{_type=} {size=}')
-            while len(data) < size:
-                data += cs.recv(size-len(data))
-            body[_type] = data.decode()
+            print(f'{offset=}\t{size=}')
+            body[_type] = clients[cs]['body_data'][offset:offset+size].decode()
+            offset += size
+
+        print(f'{body=}')
+
+        del clients[cs]['header']
+        del clients[cs]['body_data']
     except:
         return False
 
     if body['type'].value == 0:
         return utilz.msg_content(0, body['name'], 'Welcome to the server, {name}')
     elif body['type'].value == 1:
-        return utilz.msg_content(1, body['name'], body["msg"])
+        return utilz.msg_content(1, body['name'], body['msg'])
     elif body['type'].value == 2:
         close_conn(cs)
         return utilz.msg_content(2, body['name'], 'User {name} disconnected')
@@ -50,7 +65,7 @@ def recv_msg(cs):
 
 def close_conn(cs):
     print(f'Socket {cs} closed')
-    clients.remove(cs)
+    del clients[cs]
     sockets.remove(cs)
     cs.close()
 
@@ -70,17 +85,18 @@ def server():
                     new_client(sock)
                 elif (msg := recv_msg(sock)):
                     print(f'Message to send: {msg}')
-                    for c in clients:
-                        if c == sock and int(msg.decode()[0]) != 0 or int(msg.decode()[0]) == 4:
+                    for cs in clients:
+                        if cs == sock and int(msg.decode()[0]) != 0 or int(msg.decode()[0]) == 4:
                             continue
                         try:
-                            c.send(msg)
+                            cs.send(msg)
                         except:
-                            close_conn(c)
+                            close_conn(cs)
 
             for sock in warn:
-                close_conn(c)
-        except:
+                close_conn(sock)
+        except Exception as e:
+            print(e)
             print('\nServer closed finally')
             break
 

@@ -29,7 +29,8 @@ def send_msg(cs, name):
 
         if msg[0] == '\\':
             if msg[1] == 'q':
-                send_exit(cs)
+                send_exit(cs, name)
+                cs.close()
                 break
             continue
 
@@ -75,6 +76,7 @@ def recv_msg(cs, name):
             print_msg(body)
         except:
             send_exit(cs, name)
+            cs.close()
             break
 
 
