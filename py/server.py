@@ -73,7 +73,7 @@ def format_msg(cli_socket, type_m, msg, time, name):
 def server_down():
     for cli in client_list:
         cli.send(f"-1".encode("UTF-8"))
-        sv_socket.close()
+    sv_socket.close()
     os._exit(0)
 
 
