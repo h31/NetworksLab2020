@@ -80,7 +80,7 @@ def accept_thread(server_socket):
                 if data:
                     client_read(cs, data)
                 else:
-                    print('Error\n')
+                    continue
 
         for cs in exception_list:
                 close_connection(cs)
@@ -106,25 +106,29 @@ def close_connection(client_socket):
 
 def recv_package(client_socket):
     while True:
-        msg_header = client_socket.recv(HEADER)
-        if not msg_header:
+        try:
+            msg_header = client_socket.recv(HEADER)
+            if not msg_header:
+                return False
+
+            while(len(msg_header) != HEADER):
+                msg_header_tmp = client_socket.recv(HEADER - len(msg_header))
+                msg_header += msg_header_tmp
+            
+            msg_len = int(msg_header.decode(ENCODE).strip())
+
+            msg = client_socket.recv(msg_len)
+            if not msg_header:
+                return False
+
+            while(len(msg) != msg_len):
+                msg_tmp = client_socket.recv(HEADER - len(msg))
+                msg += msg_tmp
+            
+            return {'header':msg_header, 'data':msg}
+        except:
+            close_connection(client_socket)
             return False
-
-        while(len(msg_header) != HEADER):
-            msg_header_tmp = client_socket.recv(HEADER - len(msg_header))
-            msg_header += msg_header_tmp
-        
-        msg_len = int(msg_header.decode(ENCODE).strip())
-
-        msg = client_socket.recv(msg_len)
-        if not msg_header:
-            return False
-
-        while(len(msg) != msg_len):
-            msg_tmp = client_socket.recv(HEADER - len(msg))
-            msg += msg_tmp
-        
-        return {'header':msg_header, 'data':msg}
 
 def send_to_all(client_socket, package):
     for client in clients:
@@ -134,7 +138,6 @@ def send_to_all(client_socket, package):
 def client_read(client_socket, command_pack):
     try:    
         command = command_pack['data'].decode(ENCODE)
-        print(f'command = {command}')
         if command == AUTHORIZATION:
             user = recv_package(client_socket)
             if user:
