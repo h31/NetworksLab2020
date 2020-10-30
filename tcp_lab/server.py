@@ -24,7 +24,7 @@ def main():
     try:
         while True:
             readable_sock, writable_sock, exception_sock = select.select(
-                sockets, [], sockets)
+                sockets, [], [])
             for sock_fd in readable_sock:
                 if sock_fd == server:
                     cli_sock, cli_addr = server.accept()
@@ -42,9 +42,6 @@ def main():
                     hander = handler_client(sock_fd)
                     if hander is False:
                         continue
-            for sock_fd in exception_sock:
-                sockets.remove(sock_fd)
-                del clients[sock_fd]
 
     except KeyboardInterrupt:
         for cl in clients:
