@@ -1,7 +1,7 @@
 import socket
 from threading import Thread
 
-PORT = 7556
+PORT = 1234
 HEADER = 64
 SERVER = "0.0.0.0"
 ADDR = (SERVER, PORT)

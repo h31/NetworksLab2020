@@ -5,15 +5,16 @@ import datetime
 import time
 from datetime import datetime
 
-FORMAT = 'utf-8'
-PORT = 7556
-HEADER = 64
 SERVER = "51.15.130.137"
+FORMAT = 'utf-8'
+PORT = 1234
+HEADER = 64
 CHECK = True
+ADDR = (SERVER, PORT)
 clientText = input('Input your name:')
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((SERVER, PORT))
+client.connect(ADDR)
 
 name = clientText.encode(FORMAT)
 username_msg = f"{len(name):<{HEADER}}".encode(FORMAT) + name
@@ -63,11 +64,11 @@ def read_all_world():
                 CHECK = False
                 sys.exit(0)
 
-            msg_length = int(message_header.decode(FORMAT))
-            msg = client.recv(msg_length)
-            nnn = msg_length-len(msg)
-            while nnn != 0:
-                msg += client.recv(msg_length)
+            message_len = int(message_header.decode(FORMAT))
+            msg = client.recv(message_len)
+            nnn = message_len-len(msg)
+            while nnn!= 0:
+                msg += client.recv(message_len)
             msg = [m.decode(FORMAT) for m in msg.split(b'\0')]
             if len(msg) == 1:
                 print(msg[0])
@@ -79,7 +80,7 @@ def read_all_world():
             sys.exit(0)
 
 
-def encode_message(message):
+def message_for_sending(message):
     hour = datetime.now().hour
     minute = datetime.now().minute
     nnn = - time.timezone / 3600
@@ -97,7 +98,7 @@ def send_server():
         try:
             mes = input()
             if mes and CHECK:
-                msg = encode_message(mes)
+                msg = message_for_sending(mes)
                 msg = f'{len(msg):<{HEADER}}'.encode(FORMAT) + msg
                 client.send(msg)
         except:
