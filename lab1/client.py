@@ -1,129 +1,108 @@
 import socket
-import sys
 import threading
+import sys
+import datetime
 import time
 from datetime import datetime
 
-
-message_time = 0
-SERVER_MASSAGE = "SERVER DEAD"
-
-HEADER = 64
-PORT = 1330
 FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = "!DISCONNECT"
-SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
+PORT = 7556
+HEADER = 64
+SERVER = "51.15.130.137"
+CHECK = True
+clientText = input('Input your name:')
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(ADDR)
+client.connect((SERVER, PORT))
 
-
-def read_listen(check):
-    while True:
-        if check == False:
-            print('Enter any key to exit')
-            send_server(SERVER_MASSAGE)
-            read_all_world(False)
-            client.shutdown(socket.SHUT_WR)
-            client.close()
-            break
-        else:
-            msg = input()
-            while msg.find(' ]: ') != -1 or msg.find('[ ') != -1:
-                msg = input("Don't use '[ ' or ']: repeat please!' \n"
-                                   'Input massage:')
-            if msg == DISCONNECT_MESSAGE:
-                print('you are disconnected from the server')
-                send_server(DISCONNECT_MESSAGE)
-                read_all_world(False)
-                client.shutdown(socket.SHUT_WR)
-                client.close()
-                break
-            else:
-                hour = datetime.now().hour
-                minute = datetime.now().minute
-                nnn = - time.timezone / 3600
-                strin_time = str(hour) + ':' + str(minute) + ' ' + str(nnn) + ' '
-                send_server(strin_time + msg)
-
-
-def send_server(msg):
-    message = msg.encode(FORMAT)
-    msg_length = len(message)
-    send_length = str(msg_length).encode(FORMAT)
-    send_length += b' ' * (HEADER - len(send_length))
-    try:
-        client.send(send_length)
-        client.send(message)
-    except:
-        sys.exit(0)
-
+name = clientText.encode(FORMAT)
+username_msg = f"{len(name):<{HEADER}}".encode(FORMAT) + name
+client.send(username_msg)
 
 def time_set(h, m):
     return h + ':' + m
 
-def name_set(name):
-    listName = name.split(' ]:')
-    name = listName[0]
-    kok = name.split('[ ')
-    return kok[1]
+def read_listen(msg):
+    work_time = msg[0].split(' ')
+    client_timezone = - time.timezone / 3600
+    if work_time[1] != str(client_timezone):
+        number1 = client_timezone - float(work_time[1])
+        hour, minute = work_time[0].split(':')
+        df = int(number1)
+        hour = int(hour) + df
+        if hour > 23:
+            hour = hour - 24
+            current_time = time_set(str(hour), minute)
+            current_name = msg[1]
+            current_msg = msg[2]
+            print(current_time + ' [ ' + current_name + ' ]:' + current_msg)
+        elif hour < 0:
+            hour = 24 + hour
+            current_time = time_set(str(hour), minute)
+            current_name = msg[1]
+            current_msg = msg[2]
+            print(current_time + ' [ ' + current_name + ' ]:' + current_msg)
+        else:
+            current_time = time_set(str(hour), minute)
+            current_name = msg[1]
+            current_msg = msg[2]
+            print(current_time + ' [ ' + current_name + ' ]: ' + current_msg)
+    else:
+        current_name = msg[1]
+        current_msg = msg[2]
+        print(work_time[0] + ' [ ' + current_name + ' ]:' + current_msg)
 
-def read_all_world(check):
-    while check:
+
+def read_all_world():
+    global CHECK
+    while CHECK:
         try:
-            data = client.recv(10000).decode(FORMAT)
-            if data == SERVER_MASSAGE:
-                print(data)
-                read_listen(False)
+            message_header = client.recv(HEADER)
+            if not len(message_header):
+                print('Enter any key to exit')
+                CHECK = False
+                sys.exit(0)
+
+            msg_length = int(message_header.decode(FORMAT))
+            msg = client.recv(msg_length)
+            nnn = msg_length-len(msg)
+            while nnn != 0:
+                msg += client.recv(msg_length)
+            msg = [m.decode(FORMAT) for m in msg.split(b'\0')]
+            if len(msg) == 1:
+                print(msg[0])
             else:
-                work_time = data.split(' ]: ')
-                ooo = work_time[-1].split()
-                current_time = ooo[0]
-                ooo.pop(0)
-                time_zone = ooo[0]
-                ooo.pop(0)
-                client_timezone = - time.timezone/3600
-                if time_zone != str(client_timezone):
-                    number1 = client_timezone - float(time_zone)
-                    hour, minute = current_time.split(':')[0], current_time.split(':')[1]
-                    df = int(number1)
-                    hour = int(hour) + df
-                    if hour > 23:
-                        hour = hour - 24
-                        current_time = time_set(hour, minute)
-                        current_name = name_set(data)
-                        current_msg = ' '.join(ooo)
-                        print(current_time + ' [ ' + current_name + ' ]:' + current_msg)
-                    elif hour < 0:
-                        hour = 24 + hour
-                        current_time = time_set(hour, minute)
-                        current_name = name_set(data)
-                        current_msg = ' '.join(ooo)
-                        print(current_time + ' [ ' + current_name + ' ]:' + current_msg)
-                    else:
-                        current_time = time_set(str(hour), minute)
-                        current_name = name_set(data)
-                        current_msg = ' '.join(ooo)
-                        print(current_time + ' [ ' + current_name + ' ]:' + current_msg)
-                else:
-                    current_name = name_set(data)
-                    current_msg = ' '.join(ooo)
-                    print(current_time + ' [ ' + current_name + ' ]:' + current_msg)
+                msg[0] = msg[0]
+                read_listen(msg)
+        except:
+            CHECK = False
+            sys.exit(0)
 
 
+def encode_message(message):
+    hour = datetime.now().hour
+    minute = datetime.now().minute
+    nnn = - time.timezone / 3600
+
+    timeline = (str(hour) + ':' + str(minute) + ' ' + str(nnn)).encode(FORMAT)
+    usr = clientText.encode(FORMAT)
+    msg = message.encode(FORMAT)
+    return b'\0'.join([timeline, usr, msg])
+
+
+def send_server():
+    potok = threading.Thread(target=read_all_world)
+    potok.start()
+    while CHECK:
+        try:
+            mes = input()
+            if mes and CHECK:
+                msg = encode_message(mes)
+                msg = f'{len(msg):<{HEADER}}'.encode(FORMAT) + msg
+                client.send(msg)
         except:
             sys.exit(0)
 
 
-clientText = input("Don't use '[ ' or ' ]: ' in the name or massage \n"
-                   "no more than 2000 characters. \n"
-                   'Input your name:')
-while clientText.find(']: ') != -1 or clientText.find('[ ') != -1:
-    clientText = input("Don't use '[ ' or ' ]: repeat please!' \n"
-                       'Input your name:')
-send_server(clientText)
-potok = threading.Thread(target=read_all_world, args=(True,))
-potok.start()
-
-read_listen(True)
+if __name__ == '__main__':
+    send_server()
