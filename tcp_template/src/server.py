@@ -3,11 +3,19 @@ from threading import Thread
 
 messages = []
 clients = {}
+threads = {}
 end_sending = False
 
 
 def receive_message(receive_socket: socket):
-    length = int(receive_socket.recv(16).decode('utf-8'))
+    length = confirmation_of_message(receive_socket, 16)
+    if length == '':
+        return ''
+    message = confirmation_of_message(receive_socket, int(length))
+    return message
+
+
+def confirmation_of_message(receive_socket: socket, length: int):
     recd = 0
     chunks = []
     while recd < length:
@@ -16,22 +24,17 @@ def receive_message(receive_socket: socket):
             break
         chunks.append(chunk)
         recd += len(chunk)
-    return chunks
+    result = b''.join(chunks).decode('utf-8')
+    return result
 
 
-def convert_to_sixteen_bytes(name: str):
-    length_list = []
-    length_name = str(len(name))
-    for i in length_name:
-        length_list.append(i)
-    while len(length_list) < 16:
-        length_list.insert(0, '0')
-    return ''.join(length_list)
+def convert_to_sixteen_bytes(message):
+    return '{:016d}'.format(len(message))
 
 
-def add_to_messages(msg: str, addr):
+def add_to_messages(time: str, message: str, addr):
     global messages
-    messages.append((msg, addr))
+    messages.append({'address': addr, 'message': message, 'time': time})
 
 
 def add_to_clients(client_address, client_socket: socket, name: str):
@@ -43,17 +46,26 @@ def send_message():
     global messages
     global clients
     if messages:
-        address_from = messages[0][1]
-        msg = clients[address_from][1] + messages.pop(0)[0]
-        length = convert_to_sixteen_bytes(msg)
+        address_from = messages[0]['address']
+        time_message = messages[0]['time'].encode('utf-8')
+        length_time_message = convert_to_sixteen_bytes(time_message).encode('utf-8')
+        msg = messages.pop(0)['message'].encode('utf-8')
+        length_msg = convert_to_sixteen_bytes(msg).encode('utf-8')
+        name = clients[address_from][1].encode('utf-8')
+        length_name = convert_to_sixteen_bytes(name).encode('utf-8')
         for client in clients.keys():
             if client != address_from:
-                clients[client][0].send(length.encode('utf-8'))
-                clients[client][0].send(msg.encode('utf-8'))
+                clients[client][0].send(length_time_message)
+                clients[client][0].send(time_message)
+                clients[client][0].send(length_name)
+                clients[client][0].send(name)
+                clients[client][0].send(length_msg)
+                clients[client][0].send(msg)
 
 
 def delete_client(client_address, client_socket: socket):
     del clients[client_address]
+    del threads[client_address]
     client_socket.close()
     print('Отключен:', client_address)
 
@@ -66,17 +78,19 @@ class ReceiveThread(Thread):
 
     def run(self):
         while True:
+            if end_sending:
+                break
             try:
-                chunks = receive_message(self.socket)
+                time_message = receive_message(self.socket)
+                message = receive_message(self.socket)
             except OSError:
-                print('Разорвано соединение с клиентом')
+                print('Разорвано соединение с клиентом', self.client_address)
                 break
             else:
-                message = b''.join(chunks).decode('utf-8')
                 print(message)
                 if message == 'exit()' or end_sending:
                     break
-                add_to_messages(message, self.client_address)
+                add_to_messages(time_message, message, self.client_address)
         delete_client(self.client_address, self.socket)
 
 
@@ -98,29 +112,30 @@ class SendThread(Thread):
 class AcceptThread(Thread):
     def __init__(self, server_socket: socket):
         Thread.__init__(self)
-        self.server_socket = server_socket
+        self.socket = server_socket
 
     def run(self):
         global end_sending
+        global threads
         while True:
+            if end_sending:
+                break
             try:
-                conn, addr = self.server_socket.accept()
+                conn, addr = self.socket.accept()
                 print('Подключен:', addr)
-                chunks = receive_message(conn)
+                name = receive_message(conn)
             except OSError:
                 print('Нет возможности принять новое подключение')
             else:
-                name = b''.join(chunks).decode('utf-8')
                 add_to_clients(addr, conn, name)
                 rt = ReceiveThread(conn, addr)
+                threads[addr] = rt
                 rt.start()
-            finally:
-                if end_sending:
-                    break
 
 
 def main():
-    print('Start server')
+    print('Сервер запущен')
+    global end_sending
     sock = socket.socket()
     sock.bind(('', 5001))
     sock.listen(5)
@@ -131,16 +146,17 @@ def main():
     while True:
         command = input()
         if command == 'exit':
+            end_sending = True
+            for receive_thread in threads.keys():
+                threads[receive_thread].socket.shutdown(socket.SHUT_WR)
+                threads[receive_thread].socket.close()
             try:
                 sock.shutdown(socket.SHUT_WR)
             except OSError:
-                print('Были подключенные клиенты/запрос на прием или отправку данных')
-            finally:
-                break
-    global end_sending
-    end_sending = True
+                print('Сокет закрыт')
+            break
     sock.close()
-    print('Close server')
+    print('Сервер закрыт')
 
 
 if __name__ == '__main__':
