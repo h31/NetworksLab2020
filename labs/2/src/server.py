@@ -10,6 +10,7 @@ clients = {}
 def new_client(server_socket):
     client_socket, addr = server_socket.accept()
     sockets.append(client_socket)
+    client_socket.setblocking(False)
     clients[client_socket] = dict()
     print(f'New connection from: {addr}')
 
@@ -75,6 +76,7 @@ def server():
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((utilz.HOST, utilz.PORT))
     server_socket.listen()
+    server_socket.setblocking(False)
     sockets.append(server_socket)
     while True:
         try:
