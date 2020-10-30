@@ -6,7 +6,7 @@ import signal
 from datetime import datetime, timezone
 
 HOST = "127.0.0.1"
-PORT = 5001
+PORT = 5002
 SIZE = 4
 sockets_list = []
 client_list = []
@@ -91,8 +91,8 @@ def sv():
     # reusable right after sudden shutdown
     sv_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sv_socket.bind((HOST, PORT))
-    sv_socket.listen(5)
     sv_socket.setblocking(0)
+    sv_socket.listen(5)
     sockets_list.append(sv_socket)
     signal.signal(signal.SIGINT, signal_handler)
     while 1:
