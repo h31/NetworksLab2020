@@ -14,23 +14,26 @@ sockets = []
 
 def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setblocking(False)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((IP, PORT))
-    server.listen()
+    server.listen(5)
     sockets.append(server)
     print("Start listenning")
 
     try:
         while True:
             readable_sock, writable_sock, exception_sock = select.select(
-                sockets, [], [])
+                sockets, [], sockets)
             for sock_fd in readable_sock:
                 if sock_fd == server:
                     cli_sock, cli_addr = server.accept()
+                    cli_sock.setblocking(False)
+                    sockets.append(cli_sock)
+                    current_time = datetime.now().strftime("%H:%M")
                     nickname = receive_msg(cli_sock)
                     if nickname:
-                        sockets.append(cli_sock)
                         clients[cli_sock] = nickname
-                        current_time = datetime.now().strftime("%H:%M")
                         print(f"At {current_time} New client has connected")
                         notify('+1', cli_sock)
                     else:
@@ -39,6 +42,9 @@ def main():
                     hander = handler_client(sock_fd)
                     if hander is False:
                         continue
+            for sock_fd in exception_sock:
+                sockets.remove(sock_fd)
+                del clients[sock_fd]
 
     except KeyboardInterrupt:
         for cl in clients:
@@ -47,6 +53,7 @@ def main():
         server.shutdown(socket.SHUT_WR)
         server.close()
         os._exit(0)
+
 
 def broadcast(msg, cli_sock):
     for client in clients:

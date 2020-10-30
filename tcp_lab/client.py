@@ -44,36 +44,46 @@ def main():
 
 def receive_msg(cli_sock):
     while True:
-        snickname_header = cli_sock.recv(HEADER_LENGTH)
+        try:
+            snickname_header = cli_sock.recv(HEADER_LENGTH)
 
-        if not len(snickname_header):
-            print("Sever has been shutdown")
-            cli_sock.shutdown(socket.SHUT_WR)
-            cli_sock.close()
-            os._exit(0)
+            if not len(snickname_header):
+                print("Sever has been shutdown")
+                cli_sock.shutdown(socket.SHUT_WR)
+                cli_sock.close()
+                os._exit(0)
 
-        note = snickname_header.decode('utf-8').strip()
+            note = snickname_header.decode('utf-8').strip()
 
-        if note == '+1' or note == '-1':
-            notice_length = int(cli_sock.recv(HEADER_LENGTH).decode('utf-8').strip())
-            notice = cli_sock.recv(notice_length).decode('utf-8')
-            print(f'{notice}')
+            if note == '+1' or note == '-1':
+                notice_length = int(cli_sock.recv(HEADER_LENGTH).decode('utf-8').strip())
+                notice = cli_sock.recv(notice_length).decode('utf-8')
+                print(f'{notice}')
+                continue
+
+            snickname_length = int(snickname_header.decode('utf-8').strip())
+
+            snickname = cli_sock.recv(snickname_length).decode('utf-8')
+
+            msg_header = cli_sock.recv(HEADER_LENGTH)
+            msg_length = int(msg_header.decode('utf-8').strip())
+            msg = cli_sock.recv(msg_length).decode('utf-8')
+
+            send_time_header = cli_sock.recv(HEADER_LENGTH)
+            time_length = int(send_time_header.decode('utf-8').strip())
+            send_time = float(cli_sock.recv(time_length).decode('utf-8'))
+            str_time = datetime.fromtimestamp(send_time).strftime("%H:%M")
+            
+            print(f'<{str_time}> [{snickname}]: {msg}')
+        # Потому что это неблокирующий сокет - если нет ничего для чтения то будет сразу выбросить исключение
+        # Этот блок помогает программа не сразу закончится
+        except IOError as e:
+            if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
+                os._exit(0)
             continue
-
-        snickname_length = int(snickname_header.decode('utf-8').strip())
-
-        snickname = cli_sock.recv(snickname_length).decode('utf-8')
-
-        msg_header = cli_sock.recv(HEADER_LENGTH)
-        msg_length = int(msg_header.decode('utf-8').strip())
-        msg = cli_sock.recv(msg_length).decode('utf-8')
-
-        send_time_header = cli_sock.recv(HEADER_LENGTH)
-        time_length = int(send_time_header.decode('utf-8').strip())
-        send_time = float(cli_sock.recv(time_length).decode('utf-8'))
-        str_time = datetime.fromtimestamp(send_time).strftime("%H:%M")
-        
-        print(f'<{str_time}> [{snickname}]: {msg}')
+        except Exception as e:
+            print('Reading error: '.format(str(e)))
+            os._exit(0)
 
 
 if __name__ == '__main__':
