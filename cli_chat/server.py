@@ -80,22 +80,24 @@ def close_connection(client_socket):
 def receive_data(client_socket):
 	try:
 		if not buffers[client_socket]['header_check']:
+			length = HEADER_LENGTH - int(buffers[client_socket]['header'])
 			header = ''
-			message = completeness_check(client_socket, header, HEADER_LENGTH)
+			message = completeness_check(client_socket, header, length)
 
-			buffers[client_socket]['header'] = message['data']
+			buffers[client_socket]['header'] += message['data']
 			buffers[client_socket]['header_check'] = message['data_check']
 
 			if not buffers[client_socket]['header_check']:
 				return None
 
-		data_length = int(buffers[client_socket]['header'].decode(CODE).strip())
+		data_length = int(buffers[client_socket]['header'])
 
 		if not buffers[client_socket]['data_check']:
+			length = data_length - len(buffers[client_socket]['data'])
 			data = ''
 			message = completeness_check(client_socket, data, data_length)
 
-			buffers[client_socket]['data'] = message['data']
+			buffers[client_socket]['data'] += message['data']
 			buffers[client_socket]['data_check'] = message['data_check']
 
 			if not buffers[client_socket]['data_check']:
@@ -105,7 +107,7 @@ def receive_data(client_socket):
 		data = buffers[client_socket]['data']
 		buffers[client_socket] = {'header': '', 'data': '', 'header_check': False, 'data_check': False}
 
-		return {'header': header, 'data': data}
+		return {'header': header.encode(CODE), 'data': data.encode(CODE)}
 
 	except Exception as e:
 		close_connection(client_socket)
@@ -117,9 +119,9 @@ def completeness_check(client_socket, data, length):
 	if len(data) < length:
 		data += (client_socket.recv(length - len(data))).decode(CODE)
 		if len(data) == length:
-			return {'data': data.encode(CODE), 'data_check': True}
+			return {'data': data, 'data_check': True}
 		else:
-			return {'data': data.encode(CODE), 'data_check': False}
+			return {'data': data, 'data_check': False}
 
 
 def recv_time():
