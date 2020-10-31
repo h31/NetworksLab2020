@@ -117,7 +117,7 @@ def receive_data(client_socket):
 
 def completeness_check(client_socket, data, length):
 	if len(data) < length:
-		data += (client_socket.recv(length - len(data))).decode(CODE)
+		data = (client_socket.recv(length)).decode(CODE)
 		if len(data) == length:
 			return {'data': data, 'data_check': True}
 		else:
