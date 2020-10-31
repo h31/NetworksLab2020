@@ -5,17 +5,19 @@ from datetime import datetime
 import time
 import signal
 import os
+import errno
 
 HEADER_LENGTH = 10
 
 IP = "127.0.0.1"
-PORT = 5002
+PORT = 5008
 
 
 def main():
     nickname_str = input("Enter your username: ")
     cli_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     cli_sock.connect((IP, PORT))
+    cli_sock.setblocking(False)
     def catch_interrupt(signal, frame):
         cli_sock.shutdown(socket.SHUT_WR)
         cli_sock.close()
@@ -27,19 +29,16 @@ def main():
     cli_sock.send(nickname_header + nickname_code)
     receive_thread = threading.Thread(target=receive_msg, args=(cli_sock, ))
     receive_thread.start()
-    try:
-        while True:
-            msg = input()
-
-            if msg:
-                msg_code = msg.encode('utf-8')
-                msg_header = f"{len(msg_code):<{HEADER_LENGTH}}".encode('utf-8')
-                send_time = str(time.time()).encode('utf-8')
-                send_time_header = f"{len(send_time):<{HEADER_LENGTH}}".encode('utf-8')
-
-                cli_sock.send(msg_header + msg_code + send_time_header + send_time)
-    except:
-        os._exit(0)
+    
+    while True:
+        msg = input()
+        if msg:
+            msg_code = msg.encode('utf-8')
+            msg_header = f"{len(msg_code):<{HEADER_LENGTH}}".encode('utf-8')
+            send_time = str(time.time()).encode('utf-8')
+            send_time_header = f"{len(send_time):<{HEADER_LENGTH}}".encode('utf-8')
+            cli_sock.send(msg_header + msg_code + send_time_header + send_time)
+    
     
 
 def receive_msg(cli_sock):
@@ -67,7 +66,11 @@ def receive_msg(cli_sock):
 
             msg_header = cli_sock.recv(HEADER_LENGTH)
             msg_length = int(msg_header.decode('utf-8').strip())
-            msg = cli_sock.recv(msg_length).decode('utf-8')
+            
+            buf = b''
+            while len(buf) < msg_length:
+                buf += cli_sock.recv(msg_length - len(buf))
+            msg = buf.decode('utf-8')
 
             send_time_header = cli_sock.recv(HEADER_LENGTH)
             time_length = int(send_time_header.decode('utf-8').strip())
@@ -75,6 +78,7 @@ def receive_msg(cli_sock):
             str_time = datetime.fromtimestamp(send_time).strftime("%H:%M")
             
             print(f'<{str_time}> [{snickname}]: {msg}')
+        
         # Потому что это неблокирующий сокет - если нет ничего для чтения то будет сразу выбросить исключение
         # Этот блок помогает программа не сразу закончится
         except IOError as e:
@@ -82,7 +86,6 @@ def receive_msg(cli_sock):
                 os._exit(0)
             continue
         except Exception as e:
-            print('Reading error: '.format(str(e)))
             os._exit(0)
 
 

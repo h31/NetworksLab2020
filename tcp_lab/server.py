@@ -6,10 +6,12 @@ import select
 
 HEADER_LENGTH = 10
 
-IP = "127.0.0.1"
-PORT = 5002
-clients = {}
+IP = "0.0.0.0"
+PORT = 5008
+clients_names = {}
+clients_list = []
 sockets = []
+buffer = []
 
 
 def main():
@@ -30,37 +32,35 @@ def main():
                     cli_sock, cli_addr = server.accept()
                     cli_sock.setblocking(False)
                     sockets.append(cli_sock)
+                    clients_list.append(cli_sock)
+                    buffer.append([0, b""])
                     current_time = datetime.now().strftime("%H:%M")
-                    nickname = receive_msg(cli_sock)
-                    if nickname:
-                        clients[cli_sock] = nickname
-                        print(f"At {current_time} New client has connected")
-                        notify('+1', cli_sock)
-                    else:
-                        continue
+                    print(f"At {current_time} New client has connected")
+                    nickname = receive(cli_sock)
+                    clients_names[cli_sock] = nickname
+                    notify('+1', cli_sock)
                 else:
                     hander = handler_client(sock_fd)
                     if hander is False:
                         continue
 
     except KeyboardInterrupt:
-        for cl in clients:
+        for cl in clients_names:
             cl.shutdown(socket.SHUT_WR)
             cl.close()
         server.shutdown(socket.SHUT_WR)
         server.close()
         os._exit(0)
 
-
 def broadcast(msg, cli_sock):
-    for client in clients:
+    for client in clients_names:
         if client != cli_sock:
             client.send(msg)
 
 
 def notify(typeOfn, cli_sock):
     code_n = f'{typeOfn:<{HEADER_LENGTH}}'.encode('utf-8')
-    nickname = clients[cli_sock]
+    nickname = clients_names[cli_sock]
     notice = ""
     if (typeOfn == '+1'):
         notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode(
@@ -73,7 +73,7 @@ def notify(typeOfn, cli_sock):
     broadcast(msg, cli_sock)
 
 
-def receive_msg(cli_sock):
+def receive(cli_sock):
     try:
         msg_header = cli_sock.recv(HEADER_LENGTH)
 
@@ -81,7 +81,7 @@ def receive_msg(cli_sock):
             return False
 
         msg_length = int(msg_header.decode('utf-8').strip())
-
+        
         msg = cli_sock.recv(msg_length)
 
         return {'header': msg_header, 'data': msg}
@@ -95,27 +95,51 @@ def receive_msg(cli_sock):
 
 
 def handler_client(cli_sock):
-    msg = receive_msg(cli_sock)
-    nickname = clients[cli_sock]
-    if msg is False:
-        cli_sock.shutdown(socket.SHUT_WR)
-        cli_sock.close()
-        sockets.remove(cli_sock)
-        note = f"{nickname['data'].decode('utf-8')} has disconnected"
-        print(note)
-        notify('-1', cli_sock)
-        del clients[cli_sock]
-        return None
+    ind_cli = clients_list.index(cli_sock)
+    nickname = clients_names[cli_sock]
+    if buffer[ind_cli][0] == 0 and buffer[ind_cli][1] == b"":
+        print("Control buffer:")
+        print("length_buf:", buffer[ind_cli][0])
+        print("msg_buf:", buffer[ind_cli][1])
+        header_msg = cli_sock.recv(HEADER_LENGTH)
 
-    send_time = receive_msg(cli_sock)
+        if not header_msg:
+            cli_sock.shutdown(socket.SHUT_WR)
+            cli_sock.close()
+            sockets.remove(cli_sock)
+            note = f"{nickname['data'].decode('utf-8')} has disconnected"
+            print(note)
+            notify('-1', cli_sock)
+            del clients_names[cli_sock]
+            return False
+        msg_length = int(header_msg.decode('utf-8').strip())
+        msg = cli_sock.recv(msg_length)        
+        buffer[ind_cli][1] = msg
+        buffer[ind_cli][0] = msg_length
 
-    current_time = datetime.now().strftime("%H:%M")
+    
+    else:
+        tmp_length = buffer[ind_cli][0] - len(buffer[ind_cli][1])
+        buffer[ind_cli][1] += cli_sock.recv(tmp_length)
+    
+    if buffer[ind_cli][0] == len(buffer[ind_cli][1]):
+        msg_code = buffer[ind_cli][1]
+        msg_header = f"{buffer[ind_cli][0]:<{HEADER_LENGTH}}".encode('utf-8')
+        print("Control message:")
+        print("msg_header:", msg_header)
+        print("msg:", len(msg_code))
+        buffer[ind_cli][0] = 0
+        buffer[ind_cli][1] = b""
 
-    print(
-        f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg["data"].decode("utf-8")}')
+        send_time = receive(cli_sock)
 
-    full_msg = nickname['header'] + nickname['data'] + msg['header'] + msg['data'] + send_time['header'] + send_time['data']
-    broadcast(full_msg, cli_sock)
+        current_time = datetime.now().strftime("%H:%M")
+
+        print(
+            f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg_code.decode("utf-8")}')
+
+        full_msg = nickname['header'] + nickname['data'] + msg_header + msg_code + send_time['header'] + send_time['data']
+        broadcast(full_msg, cli_sock)
 
 
 if __name__ == '__main__':
