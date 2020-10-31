@@ -9,8 +9,11 @@ import errno
 
 HEADER_LENGTH = 10
 
-IP = "127.0.0.1"
+IP = "51.15.130.137"
+#IP = "127.0.0.1"
 PORT = 5008
+buffer_msg = b''
+buffer_length = 0
 
 
 def main():
@@ -43,35 +46,51 @@ def main():
 
 def receive_msg(cli_sock):
     while True:
+        global buffer_length
+        global buffer_msg
         try:
+            msg_code = b""
+            while True:
+                if buffer_length == 0 and buffer_msg == b"":   
+                    msg_header = cli_sock.recv(HEADER_LENGTH)
+
+                    if not len(msg_header):
+                        print("Sever has been shutdown")
+                        cli_sock.shutdown(socket.SHUT_WR)
+                        cli_sock.close()
+                        os._exit(0)
+
+                    note = msg_header.decode('utf-8').strip()
+
+                    if note == '+1' or note == '-1':
+                        notice_length = int(cli_sock.recv(HEADER_LENGTH).decode('utf-8').strip())
+                        notice = cli_sock.recv(notice_length).decode('utf-8')
+                        print(f'{notice}')
+                        continue
+
+                    msg_length = int(msg_header.decode('utf-8').strip())
+                    # print(msg_length)
+                    msg = cli_sock.recv(msg_length)
+                    # print(len(msg))
+                    buffer_msg = msg
+                    buffer_length = msg_length
+                else:
+                    tmp_length = buffer_length - len(buffer_msg)
+                    buffer_msg += cli_sock.recv(tmp_length)
+                
+                if buffer_length == len(buffer_msg):
+                    msg_code = buffer_msg
+                    buffer_length = 0
+                    buffer_msg = b""
+                    break
+
             snickname_header = cli_sock.recv(HEADER_LENGTH)
-
-            if not len(snickname_header):
-                print("Sever has been shutdown")
-                cli_sock.shutdown(socket.SHUT_WR)
-                cli_sock.close()
-                os._exit(0)
-
-            note = snickname_header.decode('utf-8').strip()
-
-            if note == '+1' or note == '-1':
-                notice_length = int(cli_sock.recv(HEADER_LENGTH).decode('utf-8').strip())
-                notice = cli_sock.recv(notice_length).decode('utf-8')
-                print(f'{notice}')
-                continue
 
             snickname_length = int(snickname_header.decode('utf-8').strip())
 
-            snickname = cli_sock.recv(snickname_length).decode('utf-8')
-
-            msg_header = cli_sock.recv(HEADER_LENGTH)
-            msg_length = int(msg_header.decode('utf-8').strip())
+            snickname = cli_sock.recv(snickname_length).decode('utf-8')       
             
-            buf = b''
-            while len(buf) < msg_length:
-                buf += cli_sock.recv(msg_length - len(buf))
-            msg = buf.decode('utf-8')
-
+            msg = msg_code.decode('utf-8')
             send_time_header = cli_sock.recv(HEADER_LENGTH)
             time_length = int(send_time_header.decode('utf-8').strip())
             send_time = float(cli_sock.recv(time_length).decode('utf-8'))
@@ -83,10 +102,11 @@ def receive_msg(cli_sock):
         # Этот блок помогает программа не сразу закончится
         except IOError as e:
             if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
+                print(f"exception: {e}")
                 os._exit(0)
             continue
         except Exception as e:
-            os._exit(0)
+            continue
 
 
 if __name__ == '__main__':

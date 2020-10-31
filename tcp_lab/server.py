@@ -3,6 +3,7 @@ import socket
 from datetime import datetime
 import os
 import select
+#import errno
 
 HEADER_LENGTH = 10
 
@@ -26,7 +27,7 @@ def main():
     try:
         while True:
             readable_sock, writable_sock, exception_sock = select.select(
-                sockets, [], [])
+                sockets, [], sockets)
             for sock_fd in readable_sock:
                 if sock_fd == server:
                     cli_sock, cli_addr = server.accept()
@@ -40,9 +41,11 @@ def main():
                     clients_names[cli_sock] = nickname
                     notify('+1', cli_sock)
                 else:
-                    hander = handler_client(sock_fd)
-                    if hander is False:
-                        continue
+                    handler_client(sock_fd)
+            for sock_fd in exception_sock:
+                sockets.remove(sock_fd)
+                del clients_names[sock_fd]
+    
 
     except KeyboardInterrupt:
         for cl in clients_names:
@@ -53,7 +56,7 @@ def main():
         os._exit(0)
 
 def broadcast(msg, cli_sock):
-    for client in clients_names:
+    for client in clients_list:
         if client != cli_sock:
             client.send(msg)
 
@@ -98,10 +101,13 @@ def handler_client(cli_sock):
     ind_cli = clients_list.index(cli_sock)
     nickname = clients_names[cli_sock]
     if buffer[ind_cli][0] == 0 and buffer[ind_cli][1] == b"":
-        print("Control buffer:")
-        print("length_buf:", buffer[ind_cli][0])
-        print("msg_buf:", buffer[ind_cli][1])
+        header_msg = b""
+        # try:
         header_msg = cli_sock.recv(HEADER_LENGTH)
+        # except IOError as e:
+        #     if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
+        #         os._exit(0)
+        #     return
 
         if not header_msg:
             cli_sock.shutdown(socket.SHUT_WR)
@@ -110,6 +116,7 @@ def handler_client(cli_sock):
             note = f"{nickname['data'].decode('utf-8')} has disconnected"
             print(note)
             notify('-1', cli_sock)
+            clients_list.remove(cli_sock)
             del clients_names[cli_sock]
             return False
         msg_length = int(header_msg.decode('utf-8').strip())
@@ -125,9 +132,6 @@ def handler_client(cli_sock):
     if buffer[ind_cli][0] == len(buffer[ind_cli][1]):
         msg_code = buffer[ind_cli][1]
         msg_header = f"{buffer[ind_cli][0]:<{HEADER_LENGTH}}".encode('utf-8')
-        print("Control message:")
-        print("msg_header:", msg_header)
-        print("msg:", len(msg_code))
         buffer[ind_cli][0] = 0
         buffer[ind_cli][1] = b""
 
@@ -138,8 +142,11 @@ def handler_client(cli_sock):
         print(
             f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg_code.decode("utf-8")}')
 
-        full_msg = nickname['header'] + nickname['data'] + msg_header + msg_code + send_time['header'] + send_time['data']
+        # print(msg_header)
+        # print(len(msg_code))
+        full_msg = msg_header + msg_code + nickname['header'] + nickname['data'] + send_time['header'] + send_time['data']
         broadcast(full_msg, cli_sock)
+        return
 
 
 if __name__ == '__main__':
