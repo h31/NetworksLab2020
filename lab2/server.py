@@ -1,11 +1,11 @@
 import socket
 import select
-import threading as th
 import time
 import sys
 
 clients = {}
 socket_list = []
+buffer = {}
 
 HEADER = 10
 ENCODE = 'utf-8'
@@ -25,7 +25,7 @@ def setup_server():
     f"\n4 - {hostname}({ip_address})")
     while True:
         mode = input()
-        if (mode != '1') & (mode != '2') & (mode != '3'): 
+        if (mode != '1') & (mode != '2') & (mode != '3') & (mode != '4'): 
             print("Bad input")
             continue
         elif mode == '1':
@@ -41,7 +41,7 @@ def setup_server():
         elif mode == '2':
             ip_address = 'localhost'
             break
-        elif mode == '4':
+        elif mode == '3':
             ip_address = '0.0.0.0'
             break
         else: 
@@ -63,9 +63,6 @@ def server(IP, PORT):
     server_socket.bind((IP, PORT))
     server_socket.setblocking(False)
     socket_list.append(server_socket)
-    accept_thread(server_socket)
-
-def accept_thread(server_socket):
     server_socket.listen()
 
     print(f"Waiting for new connections...")
@@ -73,7 +70,7 @@ def accept_thread(server_socket):
         read_list, _,exception_list = select.select(socket_list, [],socket_list)
     
         for cs in read_list:
-            if cs is server_socket:
+            if cs == server_socket:
                 add_connection(server_socket)
             else:
                 data = recv_package(cs)
@@ -83,12 +80,13 @@ def accept_thread(server_socket):
                     continue
 
         for cs in exception_list:
-                close_connection(cs)
+            close_connection(cs)
 
 def add_connection(server_socket):
     client_socket, client_addr = server_socket.accept()
     client_socket.setblocking(False)
     socket_list.append(client_socket)
+    buffer[client_socket] = {'header': False, 'header_data': '','data': False, 'msg':''}
     print('{:*<30}'.format("*"))
     clients[client_socket] = {'ip': client_addr[0], 'port':client_addr[1], 'username':''}     
     print(f"Connection with {client_addr[0]}:{client_addr[1]} established.")
@@ -100,35 +98,51 @@ def close_connection(client_socket):
     print(f"Connection was closed by user {user['data'].decode(ENCODE)}.")
     socket_list.remove(client_socket)
     del clients[client_socket]
+    del buffer[client_socket]
     client_socket.shutdown(socket.SHUT_RDWR)
     client_socket.close()
     return
 
+def length_control(client_socket, data, length):
+    if (len(data) != length):
+        data_tmp = client_socket.recv(length - len(data))
+        data += data_tmp.decode(ENCODE)
+    return {'header': len(data.encode(ENCODE)) == length, 'header_data': data.encode(ENCODE)}
+
 def recv_package(client_socket):
-    while True:
-        try:
-            msg_header = client_socket.recv(HEADER)
-            if not msg_header:
+    try:
+        # header recive
+        if not buffer[client_socket]['header']:
+            msg_header = buffer[client_socket]['header_data']
+            data = length_control(client_socket, msg_header, HEADER)
+
+            buffer[client_socket]['header'] = data['header']
+            buffer[client_socket]['header_data'] = data['header_data']
+
+            if not data['header']:
                 return False
 
-            while(len(msg_header) != HEADER):
-                msg_header_tmp = client_socket.recv(HEADER - len(msg_header))
-                msg_header += msg_header_tmp
-            
-            msg_len = int(msg_header.decode(ENCODE).strip())
+        # msg reciver
+        msg = buffer[client_socket]['msg']
+        msg_len = int(buffer[client_socket]['header_data'].decode(ENCODE).strip())
 
-            msg = client_socket.recv(msg_len)
-            if not msg_header:
-                return False
+        data = length_control(client_socket, msg, msg_len)
 
-            while(len(msg) != msg_len):
-                msg_tmp = client_socket.recv(HEADER - len(msg))
-                msg += msg_tmp
-            
-            return {'header':msg_header, 'data':msg}
-        except:
-            close_connection(client_socket)
+        buffer[client_socket]['data'] = data['header']
+        buffer[client_socket]['msg'] = data['header_data']
+
+        if not buffer[client_socket]['data']:
             return False
+
+        header = buffer[client_socket]['header_data']
+        msg = buffer[client_socket]['msg']
+        buffer[client_socket] = {'header': False, 'header_data': '','data': False, 'msg':''}
+
+        return {'header':header, 'data':msg}
+    except Exception as e:
+        print(e)
+        close_connection(client_socket)
+        return False
 
 def send_to_all(client_socket, package):
     for client in clients:
@@ -151,11 +165,17 @@ def client_read(client_socket, command_pack):
         elif command == SEND:
             user = clients[client_socket]['user']
             print('{:-<30}'.format("-"))
+
             msg = recv_package(client_socket)
-            _time = time.strftime("%H:%M:%S", time.gmtime()).encode(ENCODE)
-            time_header = f"{len(_time):<{HEADER}}".encode(ENCODE)
+
+            #_time = time.strftime("%H:%M:%S", time.gmtime()).encode(ENCODE)
+            _time = str(time.time()).encode(ENCODE)
+            time_header = f"{len(_time.decode(ENCODE)):<{HEADER}}".encode(ENCODE)
+
+
             msg_time = {'header':time_header, 'data': _time}
-            print(f"<{_time.decode(ENCODE)}> Received message from {user['data'].decode(ENCODE)}: \"{msg['data'].decode(ENCODE)}\"")
+
+            #print(f"<{_time.decode(ENCODE)}> Received message from {user['data'].decode(ENCODE)}: \"{msg['data'].decode(ENCODE)}\"")
             print("Sending to other users.")
             send_to_all(client_socket, user['header'] + user['data'] + msg['header'] + msg['data'] + msg_time['header'] + msg_time['data'])
             print("Sending done.")

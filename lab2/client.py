@@ -1,6 +1,6 @@
 import socket
 import threading as th
-import time
+from datetime import datetime
 import sys
 
 HEADER = 10
@@ -32,7 +32,7 @@ def setup_client():
                 except socket.error:
                     print("Bad input")
                     continue
-                break
+            break
         elif mode == '2':
                 ip_address = 'localhost'
                 break
@@ -60,7 +60,7 @@ def client(IP, PORT):
         username = input("Enter username:")
         if username != '':
             client_socket.send(f'{len(AUTHORIZATION):<{HEADER}}'.encode(ENCODE) + AUTHORIZATION.encode(ENCODE))
-            client_socket.send(f'{len(username):<{HEADER}}'.encode(ENCODE) + username.encode(ENCODE))
+            client_socket.send(f'{len(username.encode(ENCODE)):<{HEADER}}'.encode(ENCODE) + username.encode(ENCODE))
             print(f"Authorization complete.")
             break
 
@@ -89,9 +89,7 @@ def read_package(client_socket):
     return data.decode(ENCODE)
 
 def convert_time(_time):
-    time_str = time.strptime(_time, "%H:%M:%S")
-    seconds = time_str.tm_sec + time_str.tm_min*60 + time_str.tm_hour*3600
-    return time.strftime("%H:%M:%S", (time.localtime(seconds)))
+    return datetime.fromtimestamp(float(_time)).strftime("%H:%M:%S")
 
 def recv_handler(client_socket):
     while True:      
@@ -99,7 +97,6 @@ def recv_handler(client_socket):
             username = read_package(client_socket)
             message = read_package(client_socket)
             send_time = read_package(client_socket)
-
             print(f"<{convert_time(send_time)}> [{username}]: {message}")
         except OSError:
             print(f"Connection was closed.")
@@ -113,7 +110,7 @@ def send_handler(client_socket):
     f"!change - change current nickaname\n")
     while True:
         try:
-            message = input().encode(ENCODE)
+            message = input()
 
             if message == '!disconnect'.encode(ENCODE):
                 client_socket.send(f'{len(DISCONNECT):<{HEADER}}'.encode(ENCODE) + DISCONNECT.encode(ENCODE))
@@ -121,12 +118,12 @@ def send_handler(client_socket):
                 client_socket.close()
                 sys.exit()
             elif message == '!change'.encode(ENCODE):
-                username = input("Enter new username:").encode(ENCODE)
+                username = input("Enter new username:")
                 client_socket.send(f'{len(CHANGE_NICK):<{HEADER}}'.encode(ENCODE) + CHANGE_NICK.encode(ENCODE))
-                client_socket.send(f"{len(username):<{HEADER}}".encode(ENCODE) + username)
+                client_socket.send(f"{len(username.encode(ENCODE)):<{HEADER}}".encode(ENCODE) + username.encode(ENCODE))
             elif message:
                 client_socket.send(f'{len(SEND):<{HEADER}}'.encode(ENCODE) + SEND.encode(ENCODE))
-                client_socket.send(f"{len(message):<{HEADER}}".encode(ENCODE) + message)
+                client_socket.send(f"{len(message.encode(ENCODE)):<{HEADER}}".encode(ENCODE) + message.encode(ENCODE))
         except OSError:
             print(f"Connection was closed.")
             client_socket.shutdown(socket.SHUT_RDWR)
