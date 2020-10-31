@@ -146,7 +146,7 @@ def handler_client(cli_sock):
         # print(len(msg_code))
         full_msg = msg_header + msg_code + nickname['header'] + nickname['data'] + send_time['header'] + send_time['data']
         broadcast(full_msg, cli_sock)
-        return
+        #return
 
 
 if __name__ == '__main__':

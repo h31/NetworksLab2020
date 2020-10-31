@@ -106,7 +106,8 @@ def receive_msg(cli_sock):
                 os._exit(0)
             continue
         except Exception as e:
-            continue
+            print(f"Exception: {e}")
+            os._exit(0)
 
 
 if __name__ == '__main__':
