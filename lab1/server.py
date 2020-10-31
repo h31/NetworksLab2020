@@ -1,38 +1,55 @@
 import socket
-import time  # импортируем 2 модуля
+import threading
 
-host = socket.gethostbyname(socket.gethostname())  # принимает в себе ip 192.168.56.1
-print(socket.gethostbyname(socket.gethostname()))
-port = 9090  # порт
+host = "127.0.0.1"  # ip сервера (localhost)
+port = 44444  # порт
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((host, port))
+
+server.listen()
 
 clients = []  # адреса (!) подключенных клиентов
+nicknames = []
 
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # объявляем переменную s содержащую сокеты (2 - udp, 1 - ip)
-s.bind((host, port))  # объявляем технологию на создание
+# Функция для отправки сообщения подключенному пользователю
+def broadcast(message):
+    for client in clients:
+        client.send(message)
 
-quit = False
+def handle(client):
+    while True:
+        try:
+            message = client.recv(1024)
+            broadcast(message)
+        except:
+            clientIndex = clients.index(client)
+            clients.remove(client)
+            client.close()
+            nickname = nicknames[clientIndex]
+            nicknames.remove(nickname)
+            broadcast(f"[{nickname}] left the chat".encode("ascii"))
+            break
+
+def receive():
+    while True:
+        client, addres = server.accept()
+        print(f"Connected with {str(addres)}")
+
+        client.send("Nickname:".encode("ascii"))
+        nickname = client.recv(1024).decode("ascii")
+        nicknames.append(nickname)
+        clients.append(client)
+
+        print(f"Nickname of the client is {nickname}")
+        broadcast(f"[{nickname}] joined the chat".encode("ascii"))
+        client.send("Connected to the server".encode("ascii"))
+
+        thread = threading.Thread(target = handle, args = (client, ))
+        thread.start()
+
 print("---Server Started---")
+receive()
 
-while not quit:
-    try:
-        data, addr = s.recvfrom(1024)  # дата - сообщение, отправленное пользователем, аддр - адрес пользователя, 1024 - кол-во байт максимум
-
-        if addr not in clients:
-            clients.append(addr)
-
-        currentTime = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
-
-        print(addr)
-        print("[" + addr[0] + "]=[" + str(addr[1]) + "]=[" + currentTime + "]/", end="")
-        print(data.decode("utf-8"))  # Для корректного отображения сообщений на сервере
-
-        # Отправка сообщения клиентам
-        for client in clients:
-            if addr != client:
-                s.sendto(data, client)
-
-    except:
-        print("---Server Stopped---")
-        quit = True
-
-s.close()
+#currentTime = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
+# print("[" + addr[0] + "]=[" + str(addr[1]) + "]=[" + currentTime + "]/", end="")
