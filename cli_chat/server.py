@@ -26,71 +26,100 @@ CODE = settings["code"]
 HEADER_LENGTH = 8
 
 clients = {}
+sockets_list = []
+buffers = {}
+
 
 def server():
 	server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server_socket.bind((IP, PORT))
+	server_socket.setblocking(False)
+	sockets_list.append(server_socket)
+
 	server_socket.listen()
 	print(f"Listening for connections on {IP}:{PORT}")
 
-	sockets_list = [server_socket]
-
-	new_connection(sockets_list, server_socket)
-	
-
-def new_connection(sockets_list, server_socket):
 	while True:
-		read_sockets, n_, exception_sockets = select.select(sockets_list, [], sockets_list)
+		read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
 
 		for notified_socket in read_sockets:
 			if notified_socket == server_socket:
-				client_socket, client_address = server_socket.accept()
-
-				user = recv_message(client_socket)
-				if user is False:
+				new_connection(server_socket)
+			else:
+				message = receive_data(notified_socket)
+				if message:
+					receiver(notified_socket, message)
+				else:
 					continue
 
-				sockets_list.append(client_socket)
-				clients[client_socket] = user
-
-				print(f"New connetion from {client_address[0]}:{client_address[1]} Username: {user['data'].decode(CODE)}")
-
-			else:
-				receiver(notified_socket)
-
 		for notified_socket in exception_sockets:
-			sockets_list.remove(notified_socket)
-			del clients[notified_socket]
+			close_connection(notified_socket)
 
 
-def recv_message(client_socket):
-	message_header = client_socket.recv(HEADER_LENGTH)
 
-	if not message_header:
-		return False
+def new_connection(server_socket):
+	client_socket, client_address = server_socket.accept()
+	client_socket.setblocking(False)
+	sockets_list.append(client_socket)
 
-	while len(message_header) < HEADER_LENGTH:
-		recv_header = (client_socket.recv(HEADER_LENGTH - len(message_header)))
+	user = {'header': '', 'data': '', 'ip': client_address[0], 'port': client_address[1]}
+	buffers[client_socket] = {'header': '', 'data': '', 'header_check': False, 'data_check': False}
+	clients[client_socket] = user
 
-		message_header += recv_header
 
-		if len(message_header) == HEADER_LENGTH:
-			break
+def close_connection(client_socket):
+	client_socket.shutdown(socket.SHUT_RDWR)
+	client_socket.close()
+	sockets_list.remove(client_socket)
+	del clients[client_socket]
+	del buffers[client_socket]
+	return
 
-	if not len(message_header):
+
+def receive_data(client_socket):
+	try:
+		if not buffers[client_socket]['header_check']:
+			header = ''
+			message = completeness_check(client_socket, header, HEADER_LENGTH)
+
+			buffers[client_socket]['header'] = message['data']
+			buffers[client_socket]['header_check'] = message['data_check']
+
+			if not buffers[client_socket]['header_check']:
+				return None
+
+		data_length = int(buffers[client_socket]['header'].decode(CODE).strip())
+
+		if not buffers[client_socket]['data_check']:
+			data = ''
+			message = completeness_check(client_socket, data, data_length)
+
+			buffers[client_socket]['data'] = message['data']
+			buffers[client_socket]['data_check'] = message['data_check']
+
+			if not buffers[client_socket]['data_check']:
+				return None
+
+		header = buffers[client_socket]['header']
+		data = buffers[client_socket]['data']
+		buffers[client_socket] = {'header': '', 'data': '', 'header_check': False, 'data_check': False}
+
+		return {'header': header, 'data': data}
+
+	except Exception as e:
+		close_connection(client_socket)
+		print(e)
 		return None
 
-	try:
-		int(message_header)
-	except ValueError:
-		print("Incorrect type of header. Must be 'int'.")
-		return
 
-	message_length = int(message_header.decode(CODE).strip())
-	data = client_socket.recv(message_length)
-
-	return {"header": message_header, "data": data}
+def completeness_check(client_socket, data, length):
+	if len(data) < length:
+		data += (client_socket.recv(length - len(data))).decode(CODE)
+		if len(data) == length:
+			return {'data': data.encode(CODE), 'data_check': True}
+		else:
+			return {'data': data.encode(CODE), 'data_check': False}
 
 
 def recv_time():
@@ -100,23 +129,15 @@ def recv_time():
 	return {"header": _time_header, "data": _time}
 
 
-def receiver(notified_socket):
-
+def receiver(notified_socket, message):
 	user = clients[notified_socket]
-	message = recv_message(notified_socket)
 	send_time = recv_time()
 
-	if not message:
-		notified_socket.shutdown(socket.SHUT_WR)
-		notified_socket.close()
-		print(f"Connetion was closed by {clients[notified_socket]['data'].decode(CODE)}")
-		del clients[notified_socket]
-		return None
-
-	while int(message['header']) > len(message['data']):
-		message['data'] += (notified_socket.recv(int(message['header']) - len(message['data'])))
-		if int(message['header']) == len(message['data']):
-			break
+	if user['data'] == '':
+		user['header'] = message['header']
+		user['data'] = message['data']
+		print(f"New connetion from {user['ip']}:{user['port']}. Username: {user['data'].decode(CODE)}")
+		return
 
 	server_time = time.strftime("%H:%M:%S", time.gmtime())
 	print(f"Received message from {user['data'].decode(CODE)} at {server_time}: {message['data'].decode(CODE)}")
@@ -126,7 +147,6 @@ def receiver(notified_socket):
 			if client != notified_socket:
 				client.send(user['header'] + user['data'] + message['header'] + message['data'] + send_time['header'] + send_time['data'])
 	except BrokenPipeError as e:
-		print("Error with not closed socket.")
 		return
 
 server()

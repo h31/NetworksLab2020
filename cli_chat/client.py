@@ -33,11 +33,12 @@ HEADER_LENGTH = 8
 def client():
 	input_username = input("Enter username: ")
 	client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+	client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	client_socket.connect((IP, PORT))
+	
 	username = input_username.encode(CODE)
 	username_header = f"{len(username):<{HEADER_LENGTH}}".encode(CODE)
 
-	client_socket.connect((IP, PORT))
 	client_socket.send(username_header + username)
 
 	receive_thread = threading.Thread(target=read, args=(client_socket, )).start()
