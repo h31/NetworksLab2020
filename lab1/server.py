@@ -46,6 +46,7 @@ def handle_client(conn):
                 nnn = msg_length - len(msg)
                 while nnn != 0:
                     msg += conn.recv(msg_length)
+                    nnn = msg_length - len(msg)
                 msg = [m.decode(FORMAT) for m in msg.split(b'\0')]
                 if msg[2] != DISCONNECT_MESSAGE:
                     time = msg[0].encode(FORMAT)

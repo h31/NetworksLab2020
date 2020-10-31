@@ -58,17 +58,18 @@ def read_all_world():
     global CHECK
     while CHECK:
         try:
-            message_header = client.recv(HEADER)
-            if not len(message_header):
+            mheader = client.recv(HEADER)
+            if not len(mheader):
                 print('Enter any key to exit')
                 CHECK = False
                 sys.exit(0)
 
-            message_len = int(message_header.decode(FORMAT))
-            msg = client.recv(message_len)
-            nnn = message_len-len(msg)
+            msg_lenthg = int(mheader.decode(FORMAT))
+            msg = client.recv(msg_lenthg)
+            nnn = msg_lenthg-len(msg)
             while nnn!= 0:
                 msg += client.recv(message_len)
+                nnn = msg_lenthg - len(msg)
             msg = [m.decode(FORMAT) for m in msg.split(b'\0')]
             if len(msg) == 1:
                 print(msg[0])
