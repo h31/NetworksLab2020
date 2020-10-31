@@ -80,7 +80,7 @@ def close_connection(client_socket):
 def receive_data(client_socket):
 	try:
 		if not buffers[client_socket]['header_check']:
-			length = HEADER_LENGTH - int(buffers[client_socket]['header'])
+			length = HEADER_LENGTH - len(buffers[client_socket]['header'])
 			header = ''
 			message = completeness_check(client_socket, header, length)
 
