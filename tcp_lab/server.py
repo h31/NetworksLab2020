@@ -27,7 +27,7 @@ def main():
     try:
         while True:
             readable_sock, writable_sock, exception_sock = select.select(
-                sockets, [], sockets)
+                sockets, [], [])
             for sock_fd in readable_sock:
                 if sock_fd == server:
                     cli_sock, cli_addr = server.accept()
@@ -42,9 +42,6 @@ def main():
                     notify('+1', cli_sock)
                 else:
                     handler_client(sock_fd)
-            for sock_fd in exception_sock:
-                sockets.remove(sock_fd)
-                del clients_names[sock_fd]
     
 
     except KeyboardInterrupt:
@@ -93,7 +90,7 @@ def receive(cli_sock):
         print("Type of header must be 'int'")
         return False
     
-    except:
+    except KeyboardInterrupt:
         return False
 
 
@@ -132,6 +129,7 @@ def handler_client(cli_sock):
     if buffer[ind_cli][0] == len(buffer[ind_cli][1]):
         msg_code = buffer[ind_cli][1]
         msg_header = f"{buffer[ind_cli][0]:<{HEADER_LENGTH}}".encode('utf-8')
+        # Reset buffer
         buffer[ind_cli][0] = 0
         buffer[ind_cli][1] = b""
 
