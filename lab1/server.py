@@ -1,7 +1,8 @@
 import socket
 import threading
+import time
 
-host = "127.0.0.1"  # ip сервера (localhost)
+host = "0.0.0.0"  # ip сервера (localhost)
 port = 44444  # порт
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -13,39 +14,47 @@ clients = []  # адреса (!) подключенных клиентов
 nicknames = []
 
 # Функция для отправки сообщения подключенному пользователю
-def broadcast(message):
+def broadcast(muteClient, message):
     for client in clients:
-        client.send(message)
+        if client != muteClient:
+            client.send(message)
 
-def handle(client):
+def handle(client, addres):
     while True:
         try:
             message = client.recv(1024)
-            broadcast(message)
+            currentTime = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
+            print(f"[{addres[0]}:{str(addres[1])}]/[{currentTime}]/", end="")
+            print(message.decode("utf-8"))
+            broadcast(client, message)
         except:
             clientIndex = clients.index(client)
             clients.remove(client)
             client.close()
             nickname = nicknames[clientIndex]
             nicknames.remove(nickname)
-            broadcast(f"[{nickname}] left the chat".encode("ascii"))
+            currentTime = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
+            print(f"[{currentTime}]/[log]: [{nickname}] left the chat")
+            broadcast(client, f"[{nickname}] left the chat".encode("utf-8"))
             break
 
 def receive():
     while True:
         client, addres = server.accept()
-        print(f"Connected with {str(addres)}")
+        currentTime = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
+        print(f"[{currentTime}]/[log]: Connected with {str(addres)}")
 
-        client.send("Nickname:".encode("ascii"))
-        nickname = client.recv(1024).decode("ascii")
+        client.send("NICK".encode("utf-8"))
+        nickname = client.recv(1024).decode("utf-8")
         nicknames.append(nickname)
         clients.append(client)
 
-        print(f"Nickname of the client is {nickname}")
-        broadcast(f"[{nickname}] joined the chat".encode("ascii"))
-        client.send("Connected to the server".encode("ascii"))
+        currentTime = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
+        print(f"[{currentTime}]/[log]: {nickname} joined the chat")
+        broadcast(client, f"[Server]: [{nickname}] joined the chat".encode("utf-8"))
+        client.send("[Server]: Connected to the server".encode("utf-8"))
 
-        thread = threading.Thread(target = handle, args = (client, ))
+        thread = threading.Thread(target = handle, args = (client, addres))
         thread.start()
 
 print("---Server Started---")
