@@ -2,22 +2,16 @@ import socket
 import sys
 import threading
 import time
+from header_settings import *
 
 # settings
 IP = '127.0.0.1'
 PORT = 7777
 CODE = 'utf-8'
 
-# header settings
-# next 2 positions + 14 char of time
-H_LEN_CHAR = 8
-H_NAME_CHAR = 8
-H_TIME_CHAR = 16
-HEADER_LENGTH = H_LEN_CHAR + H_NAME_CHAR + H_TIME_CHAR
-
 
 def client():
-    nickname = input('Enter your nickname:')
+    nickname = input('Enter your nickname: ')
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     client_socket.connect((IP, PORT))
@@ -37,7 +31,7 @@ def get_local_time(sec):
 def write(client_socket, nickname):
     while True:
         try:
-            message = input('Enter message:')
+            message = input('Enter message: ')
 
             if message == '-leave':
                 print('You closed the connection')
@@ -60,7 +54,7 @@ def write(client_socket, nickname):
 def read(client_socket):
     while True:
         try:
-            header = client_socket.recv(HEADER_LENGTH)
+            header = client_socket.recv(SERVER_HEADER_LENGTH)
 
             if not len(header):
                 print('Connection was closed by server.')

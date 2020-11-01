@@ -3,17 +3,12 @@ import time
 import sys
 import json
 import threading
+from header_settings import *
 
 # settings
 IP = '127.0.0.1'
 PORT = 7777
 CODE = 'utf-8'
-
-# 16 symbols: 8 for length of message, 8 for nickname(only for test)
-H_LEN_CHAR = 8  # how much char are in header for length of message
-H_NAME_CHAR = 8  # nickname max len
-H_TIME_CHAR = 16
-HEADER_LENGTH = H_LEN_CHAR + H_NAME_CHAR
 
 clients = []  # here will lay clients sockets
 
@@ -42,7 +37,7 @@ def get_message(client_socket):
     # when we get empty header - we close connection.
     while True:
         try:
-            header = client_socket.recv(HEADER_LENGTH)
+            header = client_socket.recv(CLIENT_HEADER_LENGTH)
         except Exception:
             return
 
@@ -50,9 +45,9 @@ def get_message(client_socket):
             return
             # it is that connection will be closed
 
-        while len(header) < HEADER_LENGTH:
-            header += client_socket.recv(HEADER_LENGTH - len(header))
-            if len(header) == HEADER_LENGTH:
+        while len(header) < CLIENT_HEADER_LENGTH:
+            header += client_socket.recv(CLIENT_HEADER_LENGTH - len(header))
+            if len(header) == CLIENT_HEADER_LENGTH:
                 break
 
         header = header.decode(CODE)
