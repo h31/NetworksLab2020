@@ -2,7 +2,6 @@ import socket
 import threading
 from datetime import datetime
 
-
 HEADER_LENGTH = 16
 
 # IP = '0.0.0.0'

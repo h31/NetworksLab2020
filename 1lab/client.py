@@ -19,7 +19,7 @@ def main():
     username_header = f"{len(username):<{HEADER_LENGTH}}".encode(CODE)
     client_sock.send(username_header + username)
     threading.Thread(target=send, args=(client_sock,)).start()
-    threading.Thread(target=rec, args=(client_sock,)).start()
+    threading.Thread(target=receive, args=(client_sock,)).start()
 
 
 def nick():
@@ -70,7 +70,7 @@ def send(sock):
             return
 
 
-def rec(sock):
+def receive(sock):
     tz = get_localzone()
     while True:
         try:
