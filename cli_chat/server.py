@@ -64,7 +64,7 @@ def new_connection(server_socket):
 	sockets_list.append(client_socket)
 
 	user = {'header': '', 'data': '', 'ip': client_address[0], 'port': client_address[1]}
-	buffers[client_socket] = {'header': '', 'data': '', 'header_check': False, 'data_check': False}
+	buffers[client_socket] = {'header': ''.encode(CODE), 'data': ''.encode(CODE), 'header_check': False, 'data_check': False}
 	clients[client_socket] = user
 
 
@@ -80,7 +80,7 @@ def close_connection(client_socket):
 def receive_data(client_socket):
 	try:
 		if not buffers[client_socket]['header_check']:
-			header = buffers[client_socket]['header']
+			header = buffers[client_socket]['header'].decode(CODE)
 			message = completeness_check(client_socket, header, HEADER_LENGTH)
 
 			buffers[client_socket]['header'] = message['data']
@@ -92,7 +92,7 @@ def receive_data(client_socket):
 		data_length = int(buffers[client_socket]['header'].decode(CODE).strip())
 
 		if not buffers[client_socket]['data_check']:
-			data = buffers[client_socket]['data']
+			data = buffers[client_socket]['data'].decode(CODE)
 			message = completeness_check(client_socket, data, data_length)
 
 			buffers[client_socket]['data'] = message['data']
@@ -103,7 +103,7 @@ def receive_data(client_socket):
 
 		header = buffers[client_socket]['header']
 		data = buffers[client_socket]['data']
-		buffers[client_socket] = {'header': '', 'data': '', 'header_check': False, 'data_check': False}
+		buffers[client_socket] = {'header': ''.encode(CODE), 'data': ''.encode(CODE), 'header_check': False, 'data_check': False}
 
 		return {'header': header, 'data': data}
 
@@ -114,9 +114,9 @@ def receive_data(client_socket):
 
 
 def completeness_check(client_socket, data, length):
-	if len(data) < length:
+	if len(data) != length:
 		data += (client_socket.recv(length - len(data)).decode(CODE))
-		if len(data) == length:
+		if len(data.encode(CODE)) == length:
 			return {'data': data.encode(CODE), 'data_check': True}
 		else:
 			return {'data': data.encode(CODE), 'data_check': False}

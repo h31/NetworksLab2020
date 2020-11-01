@@ -58,8 +58,8 @@ def write(client_socket):
 				return None
 
 			if message:
-				message = message.encode(CODE)
 				message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
+				message = message.encode(CODE)
 				client_socket.send(message_header + message)
 
 		except EOFError as e:
@@ -81,14 +81,23 @@ def close_connection(client_socket):
 def receive(client_socket):
 
 	header = client_socket.recv(HEADER_LENGTH)
+	if not header:
+		return None
 
-	if not len(header):
-		print("Connection closed by server")
-		sys.exit()
+	while(len(header) != HEADER_LENGTH):
+		header += client_socket.recv(HEADER_LENGTH - len(header))
 
 	length = int(header.decode(CODE).strip())
-	return client_socket.recv(length).decode(CODE)
 
+	data = client_socket.recv(length)
+	if not data:
+		return False
+
+	while(len(data) != length):
+		data += client_socket.recv(length - len(data))
+
+	return data.decode(CODE)
+	
 
 def read(client_socket):
 	while True:
