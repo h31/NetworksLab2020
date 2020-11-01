@@ -58,8 +58,8 @@ def write(client_socket):
 				return None
 
 			if message:
-				message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
 				message = message.encode(CODE)
+				message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
 				client_socket.send(message_header + message)
 
 		except EOFError as e:
@@ -97,7 +97,7 @@ def receive(client_socket):
 		data += client_socket.recv(length - len(data))
 
 	return data.decode(CODE)
-	
+
 
 def read(client_socket):
 	while True:

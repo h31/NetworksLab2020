@@ -80,7 +80,7 @@ def close_connection(client_socket):
 def receive_data(client_socket):
 	try:
 		if not buffers[client_socket]['header_check']:
-			header = buffers[client_socket]['header'].decode(CODE)
+			header = buffers[client_socket]['header']
 			message = completeness_check(client_socket, header, HEADER_LENGTH)
 
 			buffers[client_socket]['header'] = message['data']
@@ -92,7 +92,7 @@ def receive_data(client_socket):
 		data_length = int(buffers[client_socket]['header'].decode(CODE).strip())
 
 		if not buffers[client_socket]['data_check']:
-			data = buffers[client_socket]['data'].decode(CODE)
+			data = buffers[client_socket]['data']
 			message = completeness_check(client_socket, data, data_length)
 
 			buffers[client_socket]['data'] = message['data']
@@ -115,11 +115,11 @@ def receive_data(client_socket):
 
 def completeness_check(client_socket, data, length):
 	if len(data) != length:
-		data += (client_socket.recv(length - len(data)).decode(CODE))
-		if len(data.encode(CODE)) == length:
-			return {'data': data.encode(CODE), 'data_check': True}
+		data += (client_socket.recv(length - len(data)))
+		if len(data) == length:
+			return {'data': data, 'data_check': True}
 		else:
-			return {'data': data.encode(CODE), 'data_check': False}
+			return {'data': data, 'data_check': False}
 
 
 def recv_time():
