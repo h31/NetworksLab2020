@@ -60,6 +60,12 @@ def read(client_socket):
                 print('Connection was closed by server.')
                 return
 
+            while len(header) < SERVER_HEADER_LENGTH:
+                header += client_socket.recv(SERVER_HEADER_LENGTH -
+                                             len(header))
+                if len(header) == SERVER_HEADER_LENGTH:
+                    break
+
             header = header.decode(CODE)
 
             h_charcount = header[:H_LEN_CHAR]
@@ -70,6 +76,11 @@ def read(client_socket):
             h_time = int(h_time)
 
             message = client_socket.recv(h_charcount)
+            while h_charcount > len(message):
+                message += client_socket.recv(h_charcount - len(message))
+                if h_charcount == len(message):
+                    break
+
             message = message.decode(CODE)
             print(f"<{get_local_time(h_time)}> [{h_nickname}]: {message}")
 
