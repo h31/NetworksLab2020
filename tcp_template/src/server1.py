@@ -1,11 +1,12 @@
 import threading
 import socket
 
-HEADER_LENGTH = 5
+HEADER_LENGTH = 16
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server.bind(('127.0.0.1', 8080))
+# server.bind(('0.0.0.0', 1234))
+server.bind(('127.0.0.1', 1234))
 server.listen(7)
 print('Server is online')
 
@@ -13,7 +14,6 @@ clients_sockets = {}
 
 
 def send_data(current_client, header, data):
-    print(f"sending {header + data}")
     for client in clients_sockets.values():
         if client != current_client:
             client.sendall(header + data)
@@ -33,15 +33,12 @@ def receive_bytes(client, length):
         try:
             data = client.recv(length - received)
             if received < length:
-                print(f"receiving data: {data}")
                 message += data
                 received += len(data)
             elif message == b'':
                 print(f"message is empty: {message}")
-                print("closing connection3")
                 close_connection(client)
             else:
-                print(f"received: {message}")
                 return message
         except Exception as ex:
             return
@@ -52,20 +49,18 @@ def listen_socket(user_address):
     while True:
         try:
             data = user.recv(HEADER_LENGTH)
-            print(f"header: {data}")
             if data == b'':
-                print("closing connection1")
                 close_connection(user_address)
             else:
                 message_length = int(data.decode('utf-8').strip())
                 print(f"message length: {message_length}")
                 message = receive_bytes(user, message_length)
                 if not message:
-                    print("some error")
+                    print("error")
                 else:
                     send_data(user, data, message)
-        except Exception:
-            return False
+        except Exception as ex:
+            return
 
 
 def accept_sockets():
