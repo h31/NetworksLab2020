@@ -1,4 +1,5 @@
 @echo off
-start close.bat /wait
+set clientN=3
+call close.bat %clientN%
 start cmd.exe /k server_start.bat
-for /l %%i in (1,1,3) do start cmd.exe /k client_start.bat %%i
+for /l %%i in (1,1,%clientN%) do start cmd.exe /k client_start.bat %%i
