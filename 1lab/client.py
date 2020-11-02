@@ -1,15 +1,18 @@
 import socket
 import threading
+import time
 from datetime import datetime
+from math import ceil
 from tzlocal import get_localzone
 
 
 HEADER_LENGTH = 16
 
-# IP = "51.15.130.137"
-IP = "localhost"
+IP = "51.15.130.137"
+# IP = "localhost"
 PORT = 5454
 CODE = 'utf-8'
+LENGTH_PART = 500
 
 
 def main():
@@ -57,9 +60,20 @@ def send(sock):
                 exit(0)
 
             if message:
-                message = message.encode(CODE)
-                message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
-                sock.send(message_header + message)
+                if len(message) > LENGTH_PART:
+                    length = ceil(len(message) / LENGTH_PART)
+                    i = 0
+                    while i < length:
+                        part = message[i * LENGTH_PART: (i + 1) * LENGTH_PART]
+                        message_send = str(part).encode(CODE)
+                        message_header = f"{len(message_send):<{HEADER_LENGTH}}".encode(CODE)
+                        sock.send(message_header + message_send)
+                        i += 1
+                        time.sleep(0.1)
+                else:
+                    message = message.encode(CODE)
+                    message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
+                    sock.send(message_header + message)
         except KeyboardInterrupt:
             sock.shutdown(socket.SHUT_RDWR)
             sock.close()

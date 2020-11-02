@@ -5,8 +5,8 @@ from datetime import datetime
 
 HEADER_LENGTH = 16
 
-# IP = '0.0.0.0'
-IP = 'localhost'
+IP = '0.0.0.0'
+# IP = 'localhost'
 PORT = 5454
 CODE = 'utf-8'
 
