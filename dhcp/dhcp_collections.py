@@ -1,3 +1,14 @@
+MAGIC_COOKIE = '99.130.83.99'
+
+dhcp_messages_types = {1: 'DHCPDISCOVER',
+                       2: 'DHCPOFFER',
+                       3: 'DHCPREQUEST',
+                       4: 'DHCPDECLINE',
+                       5: 'DHCPACK',
+                       6: 'DHCPNAK',
+                       7: 'DHCPRELEASE',
+                       8: 'DHCPINFORM'}
+
 options_dict = {0: 'pad', 1: 'subnet_mask', 2: 'time_offset', 3: 'router', 4: 'time_server', 5: 'name_server',
                 6: 'domain_server', 7: 'log_server', 8: 'quotes_server', 9: 'lpr_server', 10: 'impress_server',
                 11: 'rlp_server', 12: 'hostname', 13: 'boot_file_size', 14: 'merit_dump_file', 15: 'domain_name',
