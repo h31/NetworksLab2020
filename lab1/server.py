@@ -4,15 +4,14 @@ import time
 from datetime import datetime
 
 HEADER = 10
-TIMEZONE = time.timezone
+TIMEZONE = -time.timezone
 SERVER_WORKING = True
-# HOST = "127.0.0.1"  # ip сервера (localhost)
-HOST = "0.0.0.0"
+HOST = "127.0.0.1"  # ip сервера (localhost)
+# HOST = "0.0.0.0"
 PORT = 44450  # порт
 SERVER_NICKNAME = "Server"
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((HOST, PORT))
-print(datetime.fromtimestamp(0))
 
 server.listen()
 
@@ -24,10 +23,10 @@ def getData(time, nickname, message):
     return f"{len(data):<{HEADER}}".encode("utf-8") + data
 
 def serverTime():
-    return datetime.timestamp(datetime.now()) + TIMEZONE
+    return datetime.timestamp(datetime.now())
 
 def serverTimeFormat(mytime):
-    return datetime.strftime(datetime.fromtimestamp(mytime), "%Y-%m-%d-%H.%M.%S")
+    return datetime.strftime(datetime.fromtimestamp(mytime  - TIMEZONE), "%Y-%m-%d-%H.%M.%S")
 
 def printLog(time, message):
     print(f"[{time}]/[log]: {message}")

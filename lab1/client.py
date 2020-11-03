@@ -4,10 +4,10 @@ import time
 from datetime import datetime
 
 HEADER = 10
-TIMEZONE = time.timezone
+TIMEZONE = -time.timezone
 CLIENT_WORKING = True
-# SERVER_IP = "127.0.0.1"
-SERVER_IP = "51.15.130.137"
+SERVER_IP = "127.0.0.1"
+# SERVER_IP = "51.15.130.137"
 SERVER_PORT = 44450
 
 clientNickname = input("Nickname: ")
@@ -20,7 +20,7 @@ except ConnectionRefusedError:
     exit(0)
 
 def clientTime():
-    return datetime.timestamp(datetime.now()) + TIMEZONE
+    return datetime.timestamp(datetime.now())
 
 def getData(time, nickname, message):
     data = f"{time}\0{nickname}\0{message}".encode("utf-8")
@@ -43,8 +43,7 @@ def receive():
             serverTime, nickname, message = data.split("\0")
 
             # Прибавляем к времени наш часовой пояс
-            print(datetime.fromtimestamp(0))
-            messageTime = datetime.strftime(datetime.fromtimestamp(float(serverTime) - TIMEZONE), "%Y-%m-%d-%H.%M.%S")
+            messageTime = datetime.strftime(datetime.fromtimestamp(float(serverTime)), "%Y-%m-%d-%H.%M.%S")
             print(f"<{messageTime}> [{nickname}] {message}")
         except ConnectionResetError or KeyboardInterrupt:
             print("Error")
