@@ -43,6 +43,7 @@ def receive():
             serverTime, nickname, message = data.split("\0")
 
             # Прибавляем к времени наш часовой пояс
+            print(datetime.fromtimestamp(0))
             messageTime = datetime.strftime(datetime.fromtimestamp(float(serverTime) - TIMEZONE), "%Y-%m-%d-%H.%M.%S")
             print(f"<{messageTime}> [{nickname}] {message}")
         except ConnectionResetError or KeyboardInterrupt:

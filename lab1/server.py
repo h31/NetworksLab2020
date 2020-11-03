@@ -12,6 +12,7 @@ PORT = 44450  # порт
 SERVER_NICKNAME = "Server"
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((HOST, PORT))
+print(datetime.fromtimestamp(0))
 
 server.listen()
 
