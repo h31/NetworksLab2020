@@ -1,6 +1,10 @@
 import socket
 import threading
 import time
+from datetime import datetime
+
+BUFSIZE = 256
+TIMEZONE = time.timezone
 
 serverIP = "127.0.0.1"
 # serverIP = "51.15.130.137"
@@ -12,22 +16,32 @@ client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((serverIP, port))
 
 def clientTime():
-    return time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
+    return datetime.timestamp(datetime.now()) + TIMEZONE
 
 def getData(time, nickname, message):
-    return f"{time}\0{nickname}\0{message}".encode("utf-8")
+    data = f"{time}\0{nickname}\0{message}".encode("utf-8")
+    return f"{len(data):<{BUFSIZE}}".encode("utf-8") + data
 
 # Функция для обработки информации, приходящей с сервера
 def receive():
     while True:
         try:
-            data = client.recv(1024).decode("utf-8")
+            messageLength = int(client.recv(BUFSIZE).decode("utf-8"))
+            rawData = client.recv(BUFSIZE)
+            currentLength = len(rawData)
+            while messageLength != currentLength:
+                rawData += client.recv(BUFSIZE)
+                currentLength = len(rawData)
+            data = rawData.decode("utf-8")
             serverTime, nickname, message = data.split("\0")
-            if nickname == "Server" and message == "GET_NICKNAME\1":
-                data = getData(clientTime(), clientNickname, "POST_NICKNAME\1")
+            if nickname == "Server" and message == "\1GET_NICKNAME":
+                data = getData(clientTime(), clientNickname, "\1POST_NICKNAME")
                 client.send(data)
             else:
-                print(f"<{serverTime}> [{nickname}] {message}")
+                # Прибавляем к времени наш часовой пояс
+
+                messageTime = datetime.strftime(datetime.fromtimestamp(float(serverTime) - TIMEZONE), "%Y-%m-%d-%H.%M.%S")
+                print(f"<{messageTime}> [{nickname}] {message}")
         except:
             print("Error")
             client.close()
