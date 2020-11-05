@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 
 HEADER = 10
-TIMEZONE = -time.timezone
 CLIENT_WORKING = True
 SERVER_IP = "127.0.0.1"
 # SERVER_IP = "51.15.130.137"
