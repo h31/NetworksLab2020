@@ -22,12 +22,12 @@ class DHCPPacket:
     cha_addr = 'FF:FF:FF:FF:FF:FF'  # client hardware address;
     s_name = None  # server can OPTIONALLY include its name (sample text/DNS domain name); or for option overload
     boot_file = None  # OPTIONALLY used by client to request particular type of boot file; by server to specify its path
-    options = []  # DHCP options; option_num : option_val
+    options = {}  # DHCP options; option_num : option_val
 
     def add_options(self, options):
         for option_tag, option_data in options.items():  # add options to dict
-            self.options.append(Option(option_tag, option_data))
-        self.options.append(Option(255))
+            self.options[option_tag] = Option(option_tag, option_data)
+        self.options[255] = Option(255)
 
     def convert_to_bytes(self):
         byte_packet = bytearray([self.op_code, self.h_type, self.h_length, self.hops])
@@ -50,9 +50,9 @@ class DHCPPacket:
             except RuntimeError:
                 logging.error("File path is way too long. Cannot be longer than 128 bytes")
         byte_packet += inet_aton(MAGIC_COOKIE)
-        for option in self.options:
-            byte_packet += bytes(option.get_option())
-        print(byte_packet)
+        for option in self.options.values():
+            option_tuple = option.get_option()
+            byte_packet += bytes([option_tuple[0], option_tuple[1]]) + bytes(option_tuple[2], 'utf-8')
         return byte_packet
 
     def convert_from_bytes(self, byte_packet):
@@ -85,7 +85,7 @@ class DHCPPacket:
                 index += 128
         index += 4  # magic cookie
 
-        self.options.clear()
+        del self.options
         while index < len(byte_packet):
             tag = byte_packet[index]
             if tag != 255 and tag != 0:
@@ -94,7 +94,7 @@ class DHCPPacket:
                 index += 2 + data_len
             else:
                 data = None
-            self.options.append(Option(tag, data))
+            self.options[tag] = Option(tag, data)
 
 
 class Option:
@@ -103,7 +103,7 @@ class Option:
     data = None
 
     def __init__(self, tag, data=None):
-        self.tag = tag
+        self.tag = int(tag)
         if data is not None:
             self.len = len(data) if type(data) is str else len(bytearray(data))
             self.data = data
@@ -113,4 +113,4 @@ class Option:
      If 255: the sign that that was the last option in the options list'''
 
     def get_option(self):
-        return [self.tag, self.len, self.data] if self.data is not None else [self.tag]
+        return (self.tag, self.len, self.data) if self.data is not None else [self.tag]

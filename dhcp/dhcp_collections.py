@@ -1,5 +1,13 @@
 MAGIC_COOKIE = '99.130.83.99'
 
+default_gateway = '192.168.1.1'
+server_address = '192.168.1.2'
+start_net_address = '192.168.1.0'
+subnet_mask = '255.255.255.0'
+broadcast_mask = '255.255.255.255'
+
+lease_duration = 3600 * 2  # seconds
+
 dhcp_messages_types = {1: 'DHCPDISCOVER',
                        2: 'DHCPOFFER',
                        3: 'DHCPREQUEST',
