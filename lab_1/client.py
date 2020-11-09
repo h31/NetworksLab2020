@@ -51,6 +51,13 @@ def write(client_socket, nickname):
             return
 
 
+def wait_full_length(socket, content, length):
+    while len(content) < length:
+        content += socket.recv(length - len(content))
+        if length == len(content):
+            break
+
+
 def read(client_socket):
     while True:
         try:
@@ -60,11 +67,13 @@ def read(client_socket):
                 print('Connection was closed by server.')
                 return
 
-            while len(header) < SERVER_HEADER_LENGTH:
-                header += client_socket.recv(SERVER_HEADER_LENGTH -
-                                             len(header))
-                if len(header) == SERVER_HEADER_LENGTH:
-                    break
+            # while len(header) < SERVER_HEADER_LENGTH:
+            #     header += client_socket.recv(SERVER_HEADER_LENGTH -
+            #                                  len(header))
+            #     if len(header) == SERVER_HEADER_LENGTH:
+            #         break
+
+            wait_full_length(client_socket, header, SERVER_HEADER_LENGTH)
 
             header = header.decode(CODE)
 
@@ -76,10 +85,13 @@ def read(client_socket):
             h_time = int(h_time)
 
             message = client_socket.recv(h_charcount)
-            while h_charcount > len(message):
-                message += client_socket.recv(h_charcount - len(message))
-                if h_charcount == len(message):
-                    break
+
+            # while h_charcount > len(message):
+            #     message += client_socket.recv(h_charcount - len(message))
+            #     if h_charcount == len(message):
+            #         break
+
+            wait_full_length(client_socket, message, h_charcount)
 
             message = message.decode(CODE)
             print(f"<{get_local_time(h_time)}> [{h_nickname}]: {message}")

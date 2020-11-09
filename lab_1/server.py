@@ -33,6 +33,13 @@ def new_connection(client_socket, client_address):
     reciever(client_socket, client_address)
 
 
+def wait_full_length(socket, content, length):
+    while len(content) < length:
+        content += socket.recv(length - len(content))
+        if length == len(content):
+            break
+
+
 def get_message(client_socket):
     # when we get empty header - we close connection.
     while True:
@@ -45,10 +52,12 @@ def get_message(client_socket):
             return
             # it is that connection will be closed
 
-        while len(header) < CLIENT_HEADER_LENGTH:
-            header += client_socket.recv(CLIENT_HEADER_LENGTH - len(header))
-            if len(header) == CLIENT_HEADER_LENGTH:
-                break
+        # while len(header) < CLIENT_HEADER_LENGTH:
+        #     header += client_socket.recv(CLIENT_HEADER_LENGTH - len(header))
+        #     if len(header) == CLIENT_HEADER_LENGTH:
+        #         break
+
+        wait_full_length(client_socket, header, CLIENT_HEADER_LENGTH)
 
         header = header.decode(CODE)
         h_charcount = header[:H_LEN_CHAR]
@@ -64,10 +73,12 @@ def get_message(client_socket):
 
         message = client_socket.recv(h_charcount)
 
-        while h_charcount > len(message):
-            message += client_socket.recv(h_charcount - len(message))
-            if h_charcount == len(message):
-                break
+        # while h_charcount > len(message):
+        #     message += client_socket.recv(h_charcount - len(message))
+        #     if h_charcount == len(message):
+        #         break
+
+        wait_full_length(client_socket, message, h_charcount)
 
         message = message.decode(CODE)
 
