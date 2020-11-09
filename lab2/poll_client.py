@@ -6,6 +6,8 @@ import time
 from datetime import datetime
 
 SERVER = "51.15.130.137"
+#SERVER = socket.gethostbyname(socket.gethostname())
+
 FORMAT = 'utf-8'
 PORT = 1339
 HEADER = 64

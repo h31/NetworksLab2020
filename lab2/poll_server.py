@@ -4,7 +4,6 @@ import sys
 
 SERVER = "0.0.0.0"
 PORT = 1339
-
 FORMAT = 'utf-8'
 SERVER_MASSAGE = "SERVER DEAD"
 DISCONNECT_MESSAGE = "!DISCONNECT"
@@ -13,6 +12,7 @@ HEADER = 64
 serv = None
 names = {}
 sel = selectors.DefaultSelector()
+dictBuff = dict()
 
 
 def start_server():
@@ -26,15 +26,9 @@ def start_server():
     sel.register(fileobj=serv_socket, events=selectors.EVENT_READ, data=new_connection)
 
 
-def send_all_world(msg):
-    msg = f'{len(msg):<{HEADER}}'.encode(FORMAT) + msg
-    for client in names.keys():
-        client.send(msg)
-
-
 def close_server():
     global names
-    exit_msg= f"{len(SERVER_MASSAGE):<{HEADER}}"
+    exit_msg = f"{len(SERVER_MASSAGE):<{HEADER}}"
     msg = exit_msg
     send_all_world(msg.encode(FORMAT))
     for c in names.keys():
@@ -44,12 +38,17 @@ def close_server():
     serv.close()
 
 
+def send_all_world(msg):
+    msg = f'{len(msg):<{HEADER}}'.encode(FORMAT) + msg
+    for client in names.keys():
+        client.send(msg)
+
+
 def client_disconnect(client_socket, user):
     msg = "You are disconnected from the server"
     exit_msg_header = f"{len(msg):<{HEADER}}"
     exit_msg = exit_msg_header + msg
     client_socket.send(exit_msg.encode(FORMAT))
-
     client_socket.close()
     del names[client_socket]
     msg = "%s : !DISCONNECT" % user
@@ -57,28 +56,43 @@ def client_disconnect(client_socket, user):
     send_all_world(msg.encode(FORMAT))
 
 
+def buf_message(client):
+    if client not in dictBuff.keys():
+        msg_length = int(client.recv(HEADER).decode(FORMAT))
+        msg = client.recv(msg_length)
+        if msg_length == len(msg):
+            return msg
+        else:
+            client_msg = dict()
+            client_msg['len'] = msg_length
+            client_msg['msg'] = msg
+            dictBuff[client] = client_msg
+            return False
+    else:
+        msg_length = dictBuff[client]['len'] - len(dictBuff[client]['msg'])
+        dictBuff[client]['msg'] += client.recv(msg_length)
+        if len(dictBuff[client]['msg']) == dictBuff[client]['len']:
+            msg = dictBuff[client]['msg']
+            del dictBuff[client]
+            return msg
+        else:
+            return False
+
+
 def handle_client(client):
+    msg = False
     try:
         if client not in names.keys():
             msg_length = int(client.recv(HEADER).decode(FORMAT))
             name = client.recv(msg_length).decode(FORMAT)
             names[client] = name
-            msg = "To quit from chat type !DISCONNECT"
-            msg = f"{len(msg):<{HEADER}}" + msg
-            client.send(msg.encode(FORMAT))
+            textStart = "To quit from chat type !DISCONNECT"
+            textStart = f"{len(textStart):<{HEADER}}" + textStart
+            client.send(textStart.encode(FORMAT))
         else:
-            msg_length = int(client.recv(HEADER).decode(FORMAT))
-            msg = client.recv(msg_length)
-            nnn = msg_length - len(msg)
-            while nnn != 0:
-                try:
-                    msg += client.recv(msg_length)
-                    nnn = msg_length - len(msg)
-                except:
-                    continue
-
+            msg = buf_message(client)
+        if msg:
             msg = [m.decode(FORMAT) for m in msg.split(b'\0')]
-
             if msg[2] != DISCONNECT_MESSAGE:
                 time = msg[0].encode(FORMAT)
                 user = msg[1].encode(FORMAT)
@@ -95,7 +109,6 @@ def new_connection(servsocket):
     conn, addr = servsocket.accept()
     conn.setblocking(False)
     sel.register(fileobj=conn, events=selectors.EVENT_READ, data=handle_client)
-    conn.setblocking(False)
     print(f"[NEW CONNECTION] {addr} connected.")
 
 
@@ -109,6 +122,7 @@ def events():
     except:
         close_server()
         sys.exit(0)
+
 
 if __name__ == '__main__':
     start_server()
