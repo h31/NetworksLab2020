@@ -46,11 +46,11 @@ client.send(bytes(login, 'UTF-8'))
 thread_receive = ThreadReceive(client)
 thread_receive.start()
 while True:
-    out_data = input()
+    out_data = bytes(input(), 'UTF-8')
     length = '{:08d}'.format(len(out_data))
     client.send(bytes(str(length), 'UTF-8'))
     client.send(bytes(datetime.datetime.utcnow().strftime("%H.%M.%S"), 'UTF-8'))
-    client.send(bytes(out_data, 'UTF-8'))
+    client.send(out_data)
     if out_data == 'leave chat':
         break
 client.shutdown(socket.SHUT_WR)
