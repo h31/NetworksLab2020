@@ -1,12 +1,9 @@
 import socket
 import threading
-import time
 from datetime import datetime
-from math import ceil
 from tzlocal import get_localzone
 
-
-HEADER_LENGTH = 16
+HEADER_LENGTH = 10
 
 IP = "51.15.130.137"
 # IP = "localhost"
@@ -42,7 +39,10 @@ def receive_message(sock):
             if not len(message_header):
                 return False
             message_length = int(message_header.decode(CODE))
-            return {'header': message_header, 'data': sock.recv(message_length)}
+            message = b""
+            while message_length != len(message):
+                message += sock.recv(message_length - len(message))
+            return {'header': message_header, 'data': message}
         except:
             return
 
@@ -60,25 +60,13 @@ def send(sock):
                 exit(0)
 
             if message:
-                if len(message) > LENGTH_PART:
-                    length = ceil(len(message) / LENGTH_PART)
-                    i = 0
-                    while i < length:
-                        part = message[i * LENGTH_PART: (i + 1) * LENGTH_PART]
-                        message_send = str(part).encode(CODE)
-                        message_header = f"{len(message_send):<{HEADER_LENGTH}}".encode(CODE)
-                        sock.send(message_header + message_send)
-                        i += 1
-                        time.sleep(0.1)
-                else:
-                    message = message.encode(CODE)
-                    message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
-                    sock.send(message_header + message)
+                message = message.encode(CODE)
+                message_header = f"{len(message):<{HEADER_LENGTH}}".encode(CODE)
+                sock.send(message_header + message)
         except KeyboardInterrupt:
             sock.shutdown(socket.SHUT_RDWR)
             sock.close()
             exit(0)
-            return
         except:
             print('Closed connection')
             exit(0)
