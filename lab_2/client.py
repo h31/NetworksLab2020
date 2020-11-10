@@ -5,7 +5,7 @@ import time
 from header_settings import *
 
 # settings
-IP = '127.0.0.1'
+IP = '51.15.130.137'
 PORT = 7777
 CODE = 'utf-8'
 
@@ -56,6 +56,7 @@ def wait_full_length(socket, content, length):
         content += socket.recv(length - len(content))
         if length == len(content):
             break
+    return content
 
 
 def read(client_socket):
@@ -73,7 +74,8 @@ def read(client_socket):
             #     if len(header) == SERVER_HEADER_LENGTH:
             #         break
 
-            wait_full_length(client_socket, header, SERVER_HEADER_LENGTH)
+            header = wait_full_length(
+                client_socket, header, SERVER_HEADER_LENGTH)
 
             header = header.decode(CODE)
 
@@ -91,7 +93,7 @@ def read(client_socket):
             #     if h_charcount == len(message):
             #         break
 
-            wait_full_length(client_socket, message, h_charcount)
+            message = wait_full_length(client_socket, message, h_charcount)
 
             message = message.decode(CODE)
             print(f"<{get_local_time(h_time)}> [{h_nickname}]: {message}")
