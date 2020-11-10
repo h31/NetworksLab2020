@@ -26,6 +26,8 @@ class DHCPPacket:
 
     def add_options(self, options):
         for option_tag, option_data in options.items():  # add options to dict
+            if type(option_data) != str:
+                option_data = str(option_data)
             self.options[option_tag] = Option(option_tag, option_data)
         self.options[255] = Option(255)
 
@@ -51,8 +53,9 @@ class DHCPPacket:
                 logging.error("File path is way too long. Cannot be longer than 128 bytes")
         byte_packet += inet_aton(MAGIC_COOKIE)
         for option in self.options.values():
-            option_tuple = option.get_option()
-            byte_packet += bytes([option_tuple[0], option_tuple[1]]) + bytes(option_tuple[2], 'utf-8')
+            current_option = option.get_option()
+            byte_packet += bytes([current_option[0], current_option[1]]) + bytes(current_option[2], 'utf-8') if type(
+                current_option) == tuple else bytes(current_option)
         return byte_packet
 
     def convert_from_bytes(self, byte_packet):
@@ -85,15 +88,16 @@ class DHCPPacket:
                 index += 128
         index += 4  # magic cookie
 
-        del self.options
+        self.options.clear()
         while index < len(byte_packet):
             tag = byte_packet[index]
             if tag != 255 and tag != 0:
                 data_len = byte_packet[index + 1]
-                data = byte_packet[index + 2:index + 2 + data_len]
+                data = byte_packet[index + 2:index + 2 + data_len].decode('utf-8')
                 index += 2 + data_len
             else:
                 data = None
+                index += 1
             self.options[tag] = Option(tag, data)
 
 

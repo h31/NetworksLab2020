@@ -35,8 +35,8 @@ class Server:
 
     def define_message_type(self, msg):
         if msg.options[53] == dhcp_messages_types[1]:  # discover
-            offer_ip = self.lease_ip(msg.cha_addr)
-            self.send_broadcast()
+            offer = self.create_offer(msg)
+            self.send_broadcast(offer.convert_to_bytes())
         elif msg.options[53] == dhcp_messages_types[3]:  # request
             self.send_ack()
         elif msg.options[53] == dhcp_messages_types[8]:  # inform
@@ -68,3 +68,23 @@ class Server:
 
     def release_ip(self):
         pass
+
+    def create_offer(self, msg_from_client):
+        offer_ip = self.lease_ip(msg_from_client.cha_addr)
+
+        dhcp_packet = DHCPPacket()
+        dhcp_packet.op_code = 2
+        dhcp_packet.x_id = msg_from_client.x_id
+        dhcp_packet.yia_addr = offer_ip
+        dhcp_packet.gia_addr = msg_from_client.gia_addr
+        dhcp_packet.cha_addr = msg_from_client.cha_addr
+        dhcp_packet.add_options({
+            53: '2',
+            1: subnet_mask,
+            3: default_gateway,
+            6: dns_server,
+            51: lease_duration,
+            54: server_address
+        })
+
+        return dhcp_packet

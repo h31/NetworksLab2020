@@ -5,6 +5,7 @@ server_address = '192.168.1.2'
 start_net_address = '192.168.1.0'
 subnet_mask = '255.255.255.0'
 broadcast_mask = '255.255.255.255'
+dns_server = '192.168.1.1'
 
 lease_duration = 3600 * 2  # seconds
 
