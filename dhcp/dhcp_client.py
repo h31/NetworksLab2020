@@ -24,6 +24,7 @@ class Client:
 
     def __init__(self):
         self.client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.client_socket.bind(('', CLIENT_PORT))
         self.transaction_id = secrets.token_hex(4)
         self.mac = generate_mac.total_random()
@@ -54,7 +55,7 @@ class Client:
 
     def process_message(self, msg):
         msg_type = int(msg.options[53].data)
-        if msg_type == dhcp_messages_types['DHCPOFFER']:  # offer received
+        if msg_type == dhcp_messages_types['DHCPOFFER'] and msg.cha_addr == self.mac:  # offer received
             print('Offer accepted')
             if self.msg_was_sent_to_me(msg):
                 print(
@@ -71,7 +72,7 @@ class Client:
                 print("Request sent")
             else:
                 print("Caught offer addressed to another client")
-        elif msg_type == dhcp_messages_types['DHCPACK']:  # acknowledge received
+        elif msg_type == dhcp_messages_types['DHCPACK'] and msg.cha_addr == self.mac:  # acknowledge received
             print('Acknowledge accepted')
             if not self.msg_was_sent_to_me(msg):
                 return

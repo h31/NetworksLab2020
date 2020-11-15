@@ -25,11 +25,9 @@ class Server:
             packet_received = self.server_socket.recvfrom(BUFFER_SIZE)
             try:  # trying to parse. With a correct message should do
                 dhcp_message = DHCPPacket()
-                print(packet_received)
-                print(packet_received[0][0])
                 dhcp_message.convert_from_bytes(packet_received[0])  # get a proper format
                 if packet_received[0][0] == 1:  # message from the client
-                    print('Received message from the client')
+                    print(f'Received message from the client with mac {dhcp_message.cha_addr}')
                     self.process_message(dhcp_message)
             except Exception as ex:
                 logging.error(ex)
@@ -46,7 +44,8 @@ class Server:
             ack = self.create_ack(msg)
             if msg.cia_addr != '0.0.0.0' and msg.options[54].data == server_address:
                 ack.cia_addr = msg.cia_addr
-                self.send_unicast(ack.convert_to_bytes(), ack.cia_addr)
+                # self.send_unicast(ack.convert_to_bytes(), ack.cia_addr)
+                self.send_broadcast(ack.convert_to_bytes())
                 print('Ack sent (ip prolonging requested)')
             else:
                 self.send_broadcast(ack.convert_to_bytes())
@@ -68,12 +67,13 @@ class Server:
         hosts_iterator = (host for host in net.hosts() if
                           (str(host) != default_gateway) and str(host) != server_address)
         for addr in hosts_iterator:
-            if any([addr in self.leased_ips.keys() and self.leased_ips[addr]['last_leased'] is not None and (
-                    datetime.now() - self.leased_ips[addr]['last_leased']).total_seconds() > lease_duration,
-                    # if error encounters -> because assign None to last leased before the 1st ack, check this one
-                    addr not in self.leased_ips.keys()]):  # reuse old ip that was not prolong or take a new one
-                self.leased_ips[str(addr)] = self.leased_ip_info(client_mac)
-                return str(addr)  # stop iterating after choosing an address
+            str_addr = str(addr)
+            if (str_addr in self.leased_ips.keys() and self.leased_ips[str_addr]['last_leased'] is not None and (
+                    datetime.now() - self.leased_ips[str_addr]['last_leased']).total_seconds() > lease_duration) or (
+                    str_addr not in self.leased_ips.keys()):  # reuse old ip that was not prolong or take a new one
+                # if error encounters -> because assign None to last leased before the 1st ack, check this one
+                self.leased_ips[str_addr] = self.leased_ip_info(client_mac)
+                return str_addr  # stop iterating after choosing an address
 
     def leased_ip_info(self, mac):
         return {
