@@ -43,7 +43,19 @@ class DHCPPacket:
         byte_packet += inet_aton(self.yia_addr)
         byte_packet += inet_aton(self.sia_addr)
         byte_packet += inet_aton(self.gia_addr)
-        byte_packet += unhexlify(self.cha_addr.replace(':', '').replace('-', ''))  # mac addr to bytes
+        byte_packet += bytes(self.cha_addr.replace(':', '').replace('-', ''), 'utf-8')  # mac addr to bytes
+
+        print('opcode-hops: ', bytearray([self.op_code, self.h_type, self.h_length, self.hops]))
+        print('x_id: ', bytes(self.x_id, 'utf-8'))
+        print('secs: ', struct.pack('!H', self.secs))
+        print('flags ', struct.pack('!H', self.flags))
+        print('cia add: ', inet_aton(self.cia_addr))
+        print('yia_addr: ', inet_aton(self.yia_addr))
+        print('sia_addr: ', inet_aton(self.sia_addr))
+        print('gia_addr: ', inet_aton(self.gia_addr))
+        print('cha_addr: ', bytes(self.cha_addr.replace(':', '').replace('-', ''), 'utf-8'))
+        print('Magic cookie: ', inet_aton(MAGIC_COOKIE))
+
         if self.s_name is not None:
             try:
                 byte_packet += bytes(self.s_name + '\0' * (64 - len(self.s_name)), 'utf-8')
@@ -59,26 +71,41 @@ class DHCPPacket:
             current_option = option.get_option()
             byte_packet += bytes([current_option[0], current_option[1]]) + bytes(current_option[2], 'utf-8') if type(
                 current_option) == tuple else bytes(current_option)
+            print('option n.x: ', bytes([current_option[0], current_option[1]]) + bytes(current_option[2], 'utf-8') if type(
+                current_option) == tuple else bytes(current_option))
+        print('done converting to bytes')
         return byte_packet
 
     def convert_from_bytes(self, byte_packet):
-        index = 28 + self.h_length
+        index = 32 + self.h_length * 2
 
         self.op_code = byte_packet[0]
+        print('op code: ', byte_packet[0])
         self.h_type = byte_packet[1]
+        print('htype: ', byte_packet[1])
         self.h_length = byte_packet[2]
+        print('hlength: ', byte_packet[2])
         self.hops = byte_packet[3]
-        self.x_id = byte_packet[4:8].decode('utf-8')
-        self.secs = struct.unpack('!H', byte_packet[8:10])[0]
-        self.flags = struct.unpack('!H', byte_packet[10:12])[0]
-        self.cia_addr = inet_ntoa(byte_packet[12:16])
-        self.yia_addr = inet_ntoa(byte_packet[16:20])
-        self.sia_addr = inet_ntoa(byte_packet[20:24])
-        self.gia_addr = inet_ntoa(byte_packet[24:28])
+        print('hops: ', byte_packet[3])
+        self.x_id = byte_packet[4:12].decode('utf-8')
+        print('x_id: ', byte_packet[4:12])
+        self.secs = struct.unpack('!H', byte_packet[12:14])[0]
+        print('secs: ', byte_packet[12:14])
+        self.flags = struct.unpack('!H', byte_packet[14:16])[0]
+        print('flags: ', byte_packet[14:16])
+        self.cia_addr = inet_ntoa(byte_packet[16:20])
+        print('cia_addr: ', (byte_packet[16:20]))
+        self.yia_addr = inet_ntoa(byte_packet[20:24])
+        print('yia addr: ', inet_ntoa(byte_packet[20:24]))
+        self.sia_addr = (byte_packet[24:28])
+        print('sia addr: ', (byte_packet[24:28]))
+        self.gia_addr = inet_ntoa(byte_packet[28:32])
+        print('gia addr: ', (byte_packet[28:32]))
 
-        cha_addr = hexlify(byte_packet[28:index]).decode('utf-8')
+        cha_addr = byte_packet[32:index].decode('utf-8')
         cha_addr_iter = iter(cha_addr)
         self.cha_addr = ':'.join(a + b for a, b in zip(cha_addr_iter, cha_addr_iter))
+        print('cha_addr: ', byte_packet[32:index])
 
         next_is_cookie = inet_ntoa(byte_packet[index:index + 4]) == MAGIC_COOKIE
         if not next_is_cookie:
@@ -97,11 +124,13 @@ class DHCPPacket:
             if tag != 255 and tag != 0:
                 data_len = byte_packet[index + 1]
                 data = byte_packet[index + 2:index + 2 + data_len].decode('utf-8')
+                print('data ', data)
                 index += 2 + data_len
             else:
                 data = None
                 index += 1
             self.options[tag] = Option(tag, data)
+        print('done converting from bytes')
 
 
 class Option:

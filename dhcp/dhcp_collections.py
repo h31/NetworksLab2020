@@ -7,16 +7,16 @@ subnet_mask = '255.255.255.0'
 broadcast_mask = '255.255.255.255'
 dns_server = '192.168.1.1'
 
-lease_duration = 3600 * 2  # seconds
+lease_duration = 5 * 2  # seconds. set to  3600 * 2 for 2 hours
 
-dhcp_messages_types = {1: 'DHCPDISCOVER',
-                       2: 'DHCPOFFER',
-                       3: 'DHCPREQUEST',
-                       4: 'DHCPDECLINE',
-                       5: 'DHCPACK',
-                       6: 'DHCPNAK',
-                       7: 'DHCPRELEASE',
-                       8: 'DHCPINFORM'}
+dhcp_messages_types = {'DHCPDISCOVER': 1,
+                       'DHCPOFFER': 2,
+                       'DHCPREQUEST': 3,
+                       'DHCPDECLINE': 4,
+                       'DHCPACK': 5,
+                       'DHCPNAK': 6,
+                       'DHCPRELEASE': 7,
+                       'DHCPINFORM': 8}
 
 options_dict = {0: 'pad', 1: 'subnet_mask', 2: 'time_offset', 3: 'router', 4: 'time_server', 5: 'name_server',
                 6: 'domain_server', 7: 'log_server', 8: 'quotes_server', 9: 'lpr_server', 10: 'impress_server',

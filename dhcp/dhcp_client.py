@@ -24,8 +24,8 @@ class Client:
 
     def __init__(self):
         self.client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        self.server_address_port = (server_address, 67)
-        self.transaction_id = secrets.token_hex(32)
+        self.client_socket.bind(('', CLIENT_PORT))
+        self.transaction_id = secrets.token_hex(4)
         self.mac = generate_mac.total_random()
 
         self.dhcp_packet = DHCPPacket()
@@ -33,15 +33,14 @@ class Client:
         self.dhcp_packet.cha_addr = self.mac
 
         self.connected = True
-        # client_socket.sendto(bytes_to_send server_address_port)
-        # msgFromServer = UDPClientSocket.recvfrom(bufferSize)
 
     def run(self):
         print('Client is running...')
         while self.connected:
-            if self.ip_got == '0.0.0.0' and not self.discover_is_sent:  # we do ot have an address yet. Discover for servers
+            if self.ip_got == '0.0.0.0' and not self.discover_is_sent:  # we do not have an address yet. Discover for servers
                 discover = self.create_discover()
                 self.send_broadcast(discover.convert_to_bytes())
+                print("Discover sent")
                 self.discover_is_sent = True
             elif self.discover_is_sent:
                 packet_received = self.client_socket.recvfrom(BUFFER_SIZE)
@@ -54,29 +53,31 @@ class Client:
                     logging.error(ex)
 
     def process_message(self, msg):
-        if msg.options[53] == dhcp_messages_types[2]:  # offer received
+        msg_type = int(msg.options[53].data)
+        if msg_type == dhcp_messages_types['DHCPOFFER']:  # offer received
             print('Offer accepted')
             if self.msg_was_sent_to_me(msg):
-                self.ip_offered = msg.yia_addr
-                self.server_address = msg.sia_addr
-                request = self.create_request()
-                request.add_options({
-                    50: self.ip_offered if self.ip_got == '0.0.0.0' else self.ip_got,
-                    54: self.server_address,
-                })
-                self.send_broadcast(request.convert_to_bytes())
                 print(
                     f"Offer was addressed to this client. IP offered: {self.ip_offered}, server address:"
                     f" {self.server_address}")
+                self.ip_offered = msg.yia_addr
+                self.server_address = inet_ntoa(msg.sia_addr)
+                request = self.create_request()
+                request.add_options({
+                    50: self.ip_offered,
+                    54: self.server_address,
+                })
+                self.send_broadcast(request.convert_to_bytes())
+                print("Request sent")
             else:
                 print("Caught offer addressed to another client")
-        elif msg.options[53] == dhcp_messages_types[5]:  # acknowledge received
+        elif msg_type == dhcp_messages_types['DHCPACK']:  # acknowledge received
             print('Acknowledge accepted')
             if not self.msg_was_sent_to_me(msg):
                 return
             if self.ip_got == '0.0.0.0':  # ack after 1st request (we are about to get an ip)
                 self.ip_got = msg.yia_addr
-                self.ip_lease_duration = msg.options[51]
+                self.ip_lease_duration = msg.options[51].data
             self.create_waiting_for_renewal_thread()  # either 1st ack or ack after requesting for lease prolonging
 
     def create_waiting_for_renewal_thread(self):
@@ -86,10 +87,12 @@ class Client:
         waiting_for_prolonging_thread.start()
 
     def prolong(self, event):
-        event.wait(self.ip_lease_duration / 2)  # request for renewal after half of lease time
+        event.wait(int(self.ip_lease_duration) / 2)  # request for renewal after half of lease time
         request = self.create_request()
         request.cia_addr = self.ip_got
-        self.send_unicast(request.convert_to_bytes())  # send request for ip prolonging
+        #self.send_unicast(request.convert_to_bytes())  # send request for ip prolonging
+        self.send_broadcast(request.convert_to_bytes())
+        print("Request for prolonging sent")
 
     def msg_was_sent_to_me(self, msg):
         return True if msg.cha_addr == self.mac else False
@@ -104,7 +107,7 @@ class Client:
     def create_discover(self):
         dhcp_packet = self.dhcp_packet
         dhcp_packet.add_options({
-            53: 1,
+            53: dhcp_messages_types['DHCPDISCOVER'],
             61: self.mac
             # add 55 for parameter request list later?
         })
@@ -115,7 +118,7 @@ class Client:
         dhcp_packet.clear_options()
         dhcp_packet.flags = 0 if self.ip_got != '0.0.0.0' else 1
         dhcp_packet.add_options({
-            53: 3,
+            53: dhcp_messages_types['DHCPREQUEST'],
             61: self.mac
             # add 55 for parameter request list later?
         })
@@ -127,7 +130,7 @@ class Client:
         dhcp_packet.flags = 0
         dhcp_packet.cia_addr = self.ip_got
         dhcp_packet.add_options({
-            53: 7,
+            53: dhcp_messages_types['DHCPRELEASE'],
             61: self.mac,
             54: self.server_address
         })
