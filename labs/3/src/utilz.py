@@ -17,33 +17,37 @@ class User:
         self.mode = None
         self.filename = None
         self.block = None
-        self.data = None
+        self.data = b''
 
     def clear(self):
+        self.mode = None
         self.filename = None
         self.block = None
+        self.data = b''
 
 
 def read(filename):
     try:
-        with open(filename, 'rb') as f:
+        with open('files/' + filename, 'rb') as f:
             data = f.read()
         return data
     except:
         return None
 
 
-def store(filename, data):
-    with open(filename, 'ab') as f:
-        f.write(data)
+def store(filename, data, mode):
+    from tftp_formats import Mode, mail, netascii
+    if mode == Mode.NETASCII:
+        with open('files/' + filename, 'wb') as f:
+            f.write(netascii(data, False))
+    elif mode == Mode.OCTET:
+        with open('files/' + filename, 'wb') as f:
+            f.write(data)
 
 
 def send(sock, addr, data, mode):
-    print(f'Sending {data.opcode} to {addr} with mode={mode.value}:\n\t' + data.get_log())
-    from tftp_formats import DATA, ACK
-    if isinstance(data, DATA):
-        # use mode
-        pass
+    print(f'Sending {data.opcode} to {addr} with mode={mode.value}:\n' + data.get_log())
+    from tftp_formats import ACK, DATA, Mode, netascii
     sock.sendto(data.package, addr)
 
 
@@ -61,6 +65,7 @@ def recv(sock):
 
 def int_to_n_bytes(val, n=2):
     return val.to_bytes(n, 'big')
+
 
 def int_from_bytes(bytelist):
     return int.from_bytes(bytelist, 'big', signed=False)

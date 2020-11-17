@@ -1,6 +1,8 @@
-'''TFTP (rev. 2) formats realisation'''
+"""TFTP (rev. 2) formats realisation"""
 
+import os
 from enum import Enum
+
 from utilz import int_from_bytes, int_to_n_bytes
 
 
@@ -50,23 +52,30 @@ def get_error_msg(code):
     return msg
 
 
-def netascii(data):
-    pass
+CR = b'\x0d'
+LF = b'\x0a'
+CRLF = CR + LF
+NUL = b'\x00'
+CRNUL = CR + NUL
+
+if isinstance(os.linesep, bytes):
+    NL = os.linesep
+else:
+    NL = os.linesep.encode("ascii")
 
 
-def octet(data):
-    pass
+def netascii(data, to):
+    import re
+    if to:
+        adict = {NL: CRLF, CR: CRNUL}
+    else:
+        adict = {CRLF: NL, CRNUL: CR}
+    rx = re.compile(b'|'.join(map(re.escape, adict)))
+    return rx.sub(lambda match: adict[match.group(0)], data)
 
 
 def mail(data):
     pass
-
-
-mode_to_func = {
-    Mode.NETASCII: netascii,
-    Mode.OCTET: octet,
-    Mode.MAIL: mail,
-}
 
 
 class RRQ:
@@ -105,7 +114,7 @@ class RRQ:
         )
 
     def get_log(self):
-        return f'\tfilename: {self.filename},  mode: {self.mode}'
+        return f'\tfilename: {self.filename}\n\tmode: {self.mode}'
 
 
 class WRQ(RRQ):
@@ -139,10 +148,9 @@ class DATA:
             + int_to_n_bytes(block)
             + data
         )
-        
 
     def get_log(self):
-        return f'\tblock: {self.block}, data length: {len(self.data)}'
+        return f'\tblock: {self.block}\n\tdata length: {len(self.data)}'
 
 
 class ACK:
@@ -161,7 +169,7 @@ class ACK:
         return int_to_n_bytes(self.opcode.value) + int_to_n_bytes(self.block)
 
     def get_log(self):
-        return f'block: {self.block}'
+        return f'\tblock: {self.block}'
 
 
 class ERROR:
@@ -196,7 +204,7 @@ class ERROR:
         )
 
     def get_log(self):
-        return f'\terror code: {self.code}, error message: {self.message}'
+        return f'\terror code: {self.code}\n\terror message: {self.message}'
 
 
 opcode_to_package = {

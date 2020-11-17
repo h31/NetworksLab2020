@@ -1,2 +1,0 @@
-class IllegalOpCode(Exception):
-    pass
