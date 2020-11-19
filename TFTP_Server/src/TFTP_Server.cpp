@@ -68,7 +68,7 @@ namespace PXE_Server {
 
 	void TFTP_Server::SendDataLooper(sockaddr_in& cli_addr, std::string& filename)
 	{
-		FILE* fp;
+		
 		char buf[OP_DATA_BUFF_LEN];
 		bzero(buf, OP_DATA_BUFF_LEN);
 		//open file
@@ -77,20 +77,29 @@ namespace PXE_Server {
 		bool SendedAck = true;
 		size_t CountOfReadedBytes = 1;
 		ClientTransferInfo& TransferInfo = ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr];
-
-		//File size
+		
 		{
-		FILE* file_info_fp;
-		fopen_s(&file_info_fp, (BootDir + filename).c_str(), "rb");
-		fseek(file_info_fp, 0L, SEEK_END);
-		size_t FileSize = ftell(file_info_fp);
-		fclose(file_info_fp);
-		TransferInfo.TSizeBytes = FileSize;
+			FILE* fp = fopen((BootDir + filename).c_str(), "rb");
+			if (fp == NULL)
+			{
+				printf("File not found\n");
+				//TODO SEND FILE NOT FOUND ERROR
+			}
+			fseek(fp, 0L, SEEK_END);
+			size_t FileSize = ftell(fp);
+			TransferInfo.TSizeBytes = FileSize;
+			fclose(fp);
 		}
-
+		FILE* fp;
 		fopen_s(&fp, (BootDir + filename).c_str(), "rb");
+		if (fp == NULL)
+		{
+			printf("File not found\n");
+			//TODO SEND FILE NOT FOUND ERROR
+		}
+		
 		printf("start communicating with %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
-		while (CountOfReadedBytes >= 0)
+		while (!feof(fp))
 		{
 			bzero(buf, OP_DATA_BUFF_LEN);
 			if (TransferInfo.Status == FILE_INFO)
@@ -149,14 +158,17 @@ namespace PXE_Server {
 			if (TransferInfo.Status == DATA)
 			{
 				buf[1] = OP_DATA;
-				WriteUintAsStr(&buf[2], BlockNum++);
-				CountOfReadedBytes = fread(&buf[4], sizeof(char), TransferInfo.BlockSize, fp);
+				//WriteUintAsStr(&buf[2], BlockNum++);
+				buf[3] = BlockNum++;
+				CountOfReadedBytes = fread((char*)&buf[4], sizeof(char), TransferInfo.BlockSize, fp);
+				printf("byte readed: %d with Block Size: %d\n", CountOfReadedBytes, TransferInfo.BlockSize);
 				//printf("sendto() OP_DATA packet to %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
-				TransferInfo.Status == WAIT;
+				TransferInfo.Status = WAIT;
 				if (sendto(SocketFd, buf, 2 + 2 + CountOfReadedBytes, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
 				{
 					printf("sendto() failed with error code : %d\n", WSAGetLastError());
 					fclose(fp);
+					return;
 				}
 			}
 		}
@@ -282,6 +294,7 @@ namespace PXE_Server {
 			} break; //Client want some info about file
 			case OP_ACK:
 			{
+				printf("ACK packet from %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
 				ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::DATA;
 			} break;  //Client want to start transfering
 			case OP_ERROR:
