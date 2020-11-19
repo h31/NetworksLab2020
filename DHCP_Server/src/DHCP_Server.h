@@ -100,7 +100,7 @@ namespace PXE_Server {
 		unsigned char RouterIp[4]           = { 192, 168, 0, 1 };       //Option 3
 		unsigned char SubnetMask[4]         = { 255, 255, 255, 0 };     //Option 1
 		unsigned char TFTPIp[4]             = { 192, 168, 0, 200 };     //Option 66
-		         char BootFilename[21]      = "boot/x86/wdsnbp.com\0";  //Option 67
+		         char BootFilename[21]      = "pxelinux.0\0";  //Option 67
 		unsigned char LeaseTime[4]          = { 0,  0, 0x1c, 0x20 };    //Option 51
 		unsigned char DNS[4]                = { 8, 8, 8, 8 };           //Option 6, 44 
 		unsigned char RenewalTimeValue[4]   = { 0, 0x01, 0x51, 0x80 };  //Option 58
