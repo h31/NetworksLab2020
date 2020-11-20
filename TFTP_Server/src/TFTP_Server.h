@@ -41,6 +41,7 @@ namespace PXE_Server {
 	struct ClientTransferInfo
 	{
 		struct sockaddr_in cli_addr;
+		size_t ThreadId          = 0;
 		size_t BlockSize         = 0;
 		size_t TSizeBytes        = 0;
 		bool NeedTsize           = false;

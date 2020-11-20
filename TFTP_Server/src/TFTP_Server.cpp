@@ -83,7 +83,17 @@ namespace PXE_Server {
 			if (fp == NULL)
 			{
 				printf("File not found\n");
-				//TODO SEND FILE NOT FOUND ERROR
+				buf[1] = OP_ERROR;
+				buf[3] = 1; //FILE NOT FOUND ERROR CODE
+				strcpy(&buf[4], "File not found");
+				TransferInfo.Status = END;
+				printf("sendto() ERROR packet to %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
+				if (sendto(SocketFd, buf, 20, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
+				{
+					printf("sendto() failed with error code : %d\n", WSAGetLastError());
+					return;
+				}
+				return;
 			}
 			fseek(fp, 0L, SEEK_END);
 			size_t FileSize = ftell(fp);
@@ -92,12 +102,6 @@ namespace PXE_Server {
 		}
 		FILE* fp;
 		fopen_s(&fp, (BootDir + filename).c_str(), "rb");
-		if (fp == NULL)
-		{
-			printf("File not found\n");
-			//TODO SEND FILE NOT FOUND ERROR
-		}
-		
 		printf("start communicating with %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
 		while (!feof(fp))
 		{
@@ -247,22 +251,37 @@ namespace PXE_Server {
 				exit(EXIT_FAILURE);
 			}
 			printf("Received packet from %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+			
 			switch (buf[1])
 			{
 			case OP_RPQ:
 			{
 				TFTP_RPQ_WRQ_PACKET RPQPacket;
 				DesearilizeReadRequest(&buf[2], recv_len, cli_addr, RPQPacket);
-
 				//if present change blcksize value and status
 				if (ClientsAddrBytesMap.find(cli_addr.sin_addr.S_un.S_addr) != ClientsAddrBytesMap.end())
 				{
-					if (RPQPacket.Blcksize != 0)
+					if (ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status != END)
+					{
+						if (RPQPacket.Blcksize != 0)
+							ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].BlockSize = RPQPacket.Blcksize;
+						if (RPQPacket.NeedTsize == true)
+							ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].NeedTsize = true;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
+					}
+					else
+					{
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].BlockSize = RPQPacket.Blcksize;
-					if (RPQPacket.NeedTsize == true)
-						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].NeedTsize = true;
-					ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
-					ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].NeedTsize = RPQPacket.NeedTsize;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].TSizeBytes = 0;
+						size_t ThreadId = ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].ThreadId;
+						ThreadPool[ThreadId].detach();
+						ThreadPool[ThreadId] = std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr, RPQPacket.SourceFile);
+					}
+					
 				}
 				else
 				{
@@ -272,6 +291,7 @@ namespace PXE_Server {
 						ClientsAddrBytesMap.emplace(cli_addr.sin_addr.S_un.S_addr, ClientTransferInfo{});
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].ThreadId = ThreadPool.size();
 						ThreadPool.push_back(std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr, RPQPacket.SourceFile));
 					}
 					else
@@ -281,11 +301,12 @@ namespace PXE_Server {
 						{
 							if (it.second.Status == TransferingStatus::END)
 							{
+								size_t ThreadId = ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].ThreadId;
 								ClientsAddrBytesMap.erase(it.first);
 								ClientsAddrBytesMap.emplace(cli_addr.sin_addr.S_un.S_addr, ClientTransferInfo{});
 								ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
 								ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
-								ThreadPool.push_back(std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr, RPQPacket.SourceFile));
+								ThreadPool[ThreadId] = std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr, RPQPacket.SourceFile);
 								break;
 							}
 						}
@@ -295,7 +316,8 @@ namespace PXE_Server {
 			case OP_ACK:
 			{
 				printf("ACK packet from %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
-				ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::DATA;
+				if (ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status == WAIT)
+					ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::DATA;
 			} break;  //Client want to start transfering
 			case OP_ERROR:
 			{
