@@ -8,7 +8,7 @@ namespace PXE_Server {
 	TFTP_Server::TFTP_Server()
 		: SocketFd(socket(AF_INET, SOCK_STREAM, 0)),
 		PortNumber(TFTP_PORT_SERVER),
-		BootDir("E:/education/NetworksLab2020/lab3/tftpboot/CentOS/"),
+		BootDir("E:/education/NetworksLab2020/lab3/tftpboot/Windows/"),
 		IsRunning(true)
 	{
 		InitializeWinSock2();
@@ -66,7 +66,7 @@ namespace PXE_Server {
 		return i + 1;
 	}
 
-	void TFTP_Server::SendDataLooper(sockaddr_in& cli_addr, std::string& filename)
+	void TFTP_Server::SendDataLooper(sockaddr_in& cli_addr)
 	{
 		
 		char buf[OP_DATA_BUFF_LEN];
@@ -76,40 +76,42 @@ namespace PXE_Server {
 		uint16_t BlockNum = 1;
 		bool SendedAck = true;
 		size_t CountOfReadedBytes = 1;
+		size_t PrevCountOfReadedBytes = 1;
 		ClientTransferInfo& TransferInfo = ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr];
-		
-		{
-			FILE* fp = fopen((BootDir + filename).c_str(), "rb");
-			if (fp == NULL)
-			{
-				printf("File not found\n");
-				buf[1] = OP_ERROR;
-				buf[3] = 1; //FILE NOT FOUND ERROR CODE
-				strcpy(&buf[4], "File not found");
-				TransferInfo.Status = END;
-				printf("sendto() ERROR packet to %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
-				if (sendto(SocketFd, buf, 20, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
-				{
-					printf("sendto() failed with error code : %d\n", WSAGetLastError());
-					return;
-				}
-				return;
-			}
-			fseek(fp, 0L, SEEK_END);
-			size_t FileSize = ftell(fp);
-			TransferInfo.TSizeBytes = FileSize;
-			fclose(fp);
-		}
+		char* PrevBuf = new char[OP_DATA_BUFF_LEN];
+		bzero(PrevBuf, OP_DATA_BUFF_LEN);
 		FILE* fp;
-		fopen_s(&fp, (BootDir + filename).c_str(), "rb");
 		printf("start communicating with %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
-		while (!feof(fp))
+		bool IsDataLooperRunning = true;
+
+		while (IsDataLooperRunning)
 		{
 			bzero(buf, OP_DATA_BUFF_LEN);
 			if (TransferInfo.Status == FILE_INFO)
 			{
 				if (TransferInfo.BlockSize == 0)
 				{
+					fp = fopen((BootDir + TransferInfo.filename).c_str(), "rb");
+					if (fp == NULL)
+					{
+						printf("File not found\n");
+						buf[1] = OP_ERROR;
+						buf[3] = 1; //FILE NOT FOUND ERROR CODE
+						strcpy(&buf[4], "File not found");
+						TransferInfo.Status = END;
+						printf("sendto() ERROR packet to %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
+						if (sendto(SocketFd, buf, 20, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
+						{
+							printf("sendto() failed with error code : %d\n", WSAGetLastError());
+							return;
+						}
+						return;
+					}
+					fseek(fp, 0L, SEEK_END);
+					size_t FileSize = ftell(fp);
+					TransferInfo.TSizeBytes = FileSize;
+					fclose(fp);
+					
 					size_t SizeToTransfer = 8;
 					buf[1] = OP_ACK_ANOTHER;
 					strcpy(&buf[2], "tsize");
@@ -123,8 +125,30 @@ namespace PXE_Server {
 						return;
 					}
 				}
-				else if (TransferInfo.BlockSize != 0 && TransferInfo.TSizeBytes == 0)
+				/*else 
 				{
+					fp = fopen((BootDir + TransferInfo.filename).c_str(), "rb");
+					if (fp == NULL)
+					{
+						printf("File not found\n");
+						buf[1] = OP_ERROR;
+						buf[3] = 1; //FILE NOT FOUND ERROR CODE
+						strcpy(&buf[4], "File not found");
+						TransferInfo.Status = END;
+						printf("sendto() ERROR packet to %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
+						if (sendto(SocketFd, buf, 20, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
+						{
+							printf("sendto() failed with error code : %d\n", WSAGetLastError());
+							return;
+						}
+						return;
+					}
+					fseek(fp, 0L, SEEK_END);
+					size_t FileSize = ftell(fp);
+					TransferInfo.TSizeBytes = FileSize;
+					fclose(fp);
+
+					fopen_s(&fp, (BootDir + TransferInfo.filename).c_str(), "rb");
 					size_t SizeToTransfer = 10;
 					buf[1] = OP_ACK_ANOTHER;
 					strcpy(&buf[2], "blksize");
@@ -137,9 +161,31 @@ namespace PXE_Server {
 						fclose(fp);
 						return;
 					}
-				}
-				else if (TransferInfo.BlockSize != 0 && TransferInfo.TSizeBytes != 0)
+				}*/
+				else
 				{
+					fp = fopen((BootDir + TransferInfo.filename).c_str(), "rb");
+					if (fp == NULL)
+					{
+						printf("File not found\n");
+						buf[1] = OP_ERROR;
+						buf[3] = 1; //FILE NOT FOUND ERROR CODE
+						strcpy(&buf[4], "File not found");
+						TransferInfo.Status = END;
+						printf("sendto() ERROR packet to %s:%d\n", inet_ntoa(TransferInfo.cli_addr.sin_addr), ntohs(TransferInfo.cli_addr.sin_port));
+						if (sendto(SocketFd, buf, 20, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
+						{
+							printf("sendto() failed with error code : %d\n", WSAGetLastError());
+							return;
+						}
+						return;
+					}
+					fseek(fp, 0L, SEEK_END);
+					size_t FileSize = ftell(fp);
+					TransferInfo.TSizeBytes = FileSize;
+					fclose(fp);
+
+					fopen_s(&fp, (BootDir + TransferInfo.filename).c_str(), "rb");
 					size_t SizeToTransfer = 8;
 					buf[1] = OP_ACK_ANOTHER;
 					strcpy(&buf[2], "tsize");
@@ -159,14 +205,28 @@ namespace PXE_Server {
 				}
 			}
 
-			if (TransferInfo.Status == DATA)
+			if (TransferInfo.Status == SEND_AGAIN)
 			{
+				if (sendto(SocketFd, PrevBuf, 2 + 2 + PrevCountOfReadedBytes, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
+				{
+					printf("sendto() failed with error code : %d\n", WSAGetLastError());
+					fclose(fp);
+					return;
+				}
+				TransferInfo.Status = WAIT;
+			}
+			else if (TransferInfo.Status == DATA)
+			{
+
 				buf[1] = OP_DATA;
-				//WriteUintAsStr(&buf[2], BlockNum++);
-				buf[3] = BlockNum++;
+				buf[2] = BlockNum >> 8;
+				buf[3] = BlockNum & 0xff;
+				BlockNum++;
+				memcpy(PrevBuf, buf, 4 + CountOfReadedBytes);
+				PrevCountOfReadedBytes = CountOfReadedBytes;
 				CountOfReadedBytes = fread((char*)&buf[4], sizeof(char), TransferInfo.BlockSize, fp);
-				printf("byte readed: %d with Block Size: %d\n", CountOfReadedBytes, TransferInfo.BlockSize);
-				//printf("sendto() OP_DATA packet to %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+				TransferInfo.BlockNumData = BlockNum;
+				printf("byte readed: %d with Block Num: %d\n", CountOfReadedBytes, BlockNum);
 				TransferInfo.Status = WAIT;
 				if (sendto(SocketFd, buf, 2 + 2 + CountOfReadedBytes, 0, (struct sockaddr*)&TransferInfo.cli_addr, sizeof(TransferInfo.cli_addr)) < 0)
 				{
@@ -174,9 +234,16 @@ namespace PXE_Server {
 					fclose(fp);
 					return;
 				}
+				if (feof(fp))
+				{
+					TransferInfo.Status = END;
+					IsDataLooperRunning = false;
+				}
 			}
 		}
 		fclose(fp);
+		
+		delete[] PrevBuf;
 		TransferInfo.Status = END;
 	}
 	
@@ -241,7 +308,7 @@ namespace PXE_Server {
 
 		while (IsRunning)
 		{
-			memset((void*)buf, '\0', BUFLEN);
+			bzero(buf, BUFLEN);
 			recv_len = recvfrom(SocketFd, buf, BUFLEN, 0, (struct sockaddr*)&cli_addr, &clilen);
 			if (recv_len == SOCKET_ERROR)
 			{
@@ -268,6 +335,7 @@ namespace PXE_Server {
 						if (RPQPacket.NeedTsize == true)
 							ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].NeedTsize = true;
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].filename = RPQPacket.SourceFile;
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
 					}
 					else
@@ -277,9 +345,11 @@ namespace PXE_Server {
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].NeedTsize = RPQPacket.NeedTsize;
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
 						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].TSizeBytes = 0;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].BlockNumData = 1;
 						size_t ThreadId = ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].ThreadId;
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].filename = RPQPacket.SourceFile;
 						ThreadPool[ThreadId].detach();
-						ThreadPool[ThreadId] = std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr, RPQPacket.SourceFile);
+						ThreadPool[ThreadId] = std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr);
 					}
 					
 				}
@@ -288,11 +358,11 @@ namespace PXE_Server {
 					if (ThreadPool.size() < 3)
 					{
 						//Add new
-						ClientsAddrBytesMap.emplace(cli_addr.sin_addr.S_un.S_addr, ClientTransferInfo{});
-						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
-						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
-						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].ThreadId = ThreadPool.size();
-						ThreadPool.push_back(std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr, RPQPacket.SourceFile));
+						ClientsAddrBytesMap.emplace(cli_addr.sin_addr.S_un.S_addr, ClientTransferInfo
+							{
+								cli_addr, ThreadPool.size(), 0, 0, true, 0, 1, RPQPacket.SourceFile, WAIT
+							});
+						ThreadPool.push_back(std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr));
 					}
 					else
 					{
@@ -305,8 +375,9 @@ namespace PXE_Server {
 								ClientsAddrBytesMap.erase(it.first);
 								ClientsAddrBytesMap.emplace(cli_addr.sin_addr.S_un.S_addr, ClientTransferInfo{});
 								ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].cli_addr = cli_addr;
+								ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].filename = RPQPacket.SourceFile;
 								ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::FILE_INFO;
-								ThreadPool[ThreadId] = std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr, RPQPacket.SourceFile);
+								ThreadPool[ThreadId] = std::thread(&PXE_Server::TFTP_Server::SendDataLooper, this, cli_addr);
 								break;
 							}
 						}
@@ -315,9 +386,21 @@ namespace PXE_Server {
 			} break; //Client want some info about file
 			case OP_ACK:
 			{
-				printf("ACK packet from %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
-				if (ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status == WAIT)
-					ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::DATA;
+				uint16_t tmp = buf[2];
+				uint16_t BlockAckNum = (tmp << 8) | buf[3];
+				ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].BlockNumAcknoledged = BlockAckNum;
+				uint16_t BlockNumData = ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].BlockNumData;
+				if (BlockAckNum < BlockNumData - 1)
+				{
+					printf("Need to send data again with block number %i\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), BlockAckNum);
+					ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::SEND_AGAIN;
+				}
+				else
+				{
+					printf("ACK packet from %s:%d Block number is %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), BlockAckNum);
+					if (ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status == WAIT)
+						ClientsAddrBytesMap[cli_addr.sin_addr.S_un.S_addr].Status = TransferingStatus::DATA;
+				}
 			} break;  //Client want to start transfering
 			case OP_ERROR:
 			{

@@ -35,7 +35,8 @@ namespace PXE_Server {
 		WAIT      =  0,
 		DATA      =  1,
 		FILE_INFO =  2,
-		END       =  3
+		SEND_AGAIN=  3,
+		END       =  4
 	};
 
 	struct ClientTransferInfo
@@ -45,6 +46,9 @@ namespace PXE_Server {
 		size_t BlockSize         = 0;
 		size_t TSizeBytes        = 0;
 		bool NeedTsize           = false;
+		uint16_t BlockNumAcknoledged = 0;
+		uint16_t BlockNumData        = 1;
+		std::string filename = "";
 		TransferingStatus Status = TransferingStatus::WAIT;
 	};
 
@@ -108,7 +112,7 @@ namespace PXE_Server {
 		size_t ReadStrAsUint(char* Src);
 		size_t WriteUintAsStr(char* Dst, size_t Value);
 
-		void SendDataLooper(struct sockaddr_in& cli_addr, std::string& filename);
+		void SendDataLooper(struct sockaddr_in& cli_addr);
 
 		void ReceiveRPQPacket();
 

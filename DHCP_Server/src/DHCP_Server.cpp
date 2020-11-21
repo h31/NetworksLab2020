@@ -203,11 +203,11 @@ namespace PXE_Server {
 		BufReply[i++] = 4;
 		memcpy(&BufReply[i], &Config.RebindingTimeValue[0], 4);
 		i += 4;
-		//Option 7 - Log Server
+		/*//Option 7 - Log Server
 		BufReply[i++] = Option_007;
 		BufReply[i++] = 4;
 		memcpy(&BufReply[i], &Config.LogServer[0], 4);
-		i += 4;
+		i += 4;*/
 		BufReply[i] = OPTION_END;
 
 		struct sockaddr_in BroadcastResponseAddress;
