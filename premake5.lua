@@ -40,7 +40,8 @@ project "DHCP_Server"
 	includedirs
 	{
 		"%{prj.name}/src",
-		"vendor/crossplatform"
+		"vendor/crossplatform",
+		"vendor/threading"
 	}
 
 	links 
@@ -80,7 +81,7 @@ project "DHCP_Server"
 		--}
 
 	filter "configurations:Debug"
-		defines ""
+		defines "SERVER_DEBUG"
 		runtime "Debug"
 		symbols "on"
 
@@ -114,7 +115,8 @@ project "TFTP_Server"
 	includedirs
 	{
 		"%{prj.name}/src",
-		"vendor/crossplatform"
+		"vendor/crossplatform",
+		"vendor/threading"
 	}
 
 	links
@@ -149,7 +151,7 @@ project "TFTP_Server"
 		}
 
 	filter "configurations:Debug"
-		defines "CLIENT_DEBUG"
+		defines "SERVER_DEBUG"
 		runtime "Debug"
 		symbols "on"
 

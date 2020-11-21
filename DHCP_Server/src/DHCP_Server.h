@@ -8,6 +8,7 @@
 #endif
 
 #include <unordered_map>
+#include <deque>
 
 namespace PXE_Server {
 
@@ -73,15 +74,15 @@ namespace PXE_Server {
 	struct BOOTPPacket
 	{
 		char BootTypeMessage               = BOOTPReply;                       //0 byte
-		char HardwareType                  = 6;                                //1 byte
-		char HardwareAddrLength            = 0;                                //2 byte
+		char HardwareType                  = 1;                                //1 byte
+		char HardwareAddrLength            = 6;                                //2 byte
 		char HopCount                      = 0;                                //3 byte
 		char TransactionID[4]              = { 0, 0, 0, 0 };                   //4 - 7 bytes
 		char SecondElapsed[2]              = { 0, 0 };                         //8 - 9 bytes
 		unsigned char BootpFlags[2]        = { 0x80, 0 };                      //10 - 11 bytes
 		unsigned char ClientIpAddress[4]   = { 0, 0, 0, 0 };                   //12 - 15
 		unsigned char YourIpAddr[4]        = { 192, 168, 56, 2 };                   //16 - 19
-		unsigned char NextIpAddress[4]              = { 192, 168, 56, 1 };                   //20 - 23
+		unsigned char NextIpAddress[4]     = { 192, 168, 56, 1 };                   //20 - 23
 		char RelayAgentIpAddress[4]        = { 0, 0, 0, 0 };                   //24 - 27
 		char ClientMacAddress[6]           = { 0, 0, 0, 0, 0, 0 };             //28 - 33
 		char ClientHardwareAddrPadding[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; //34 - 43
@@ -106,6 +107,12 @@ namespace PXE_Server {
 		unsigned char RenewalTimeValue[4]   = { 0, 0x01, 0x51, 0x80 };  //Option 58
 		unsigned char RebindingTimeValue[4] = { 0, 0x02, 0x1c, 0 };     //Option 59
 		unsigned char LogServer[4]          = { 192, 168, 56, 1 };
+		unsigned char PoolSize              = 50;
+	};
+
+	struct IpAddr
+	{
+		unsigned char Addr[4] = { 0, 0, 0, 0 };
 	};
 
 	class DHCP_Server
@@ -128,7 +135,8 @@ namespace PXE_Server {
 		SOCKET SocketFd;
 		uint16_t PortNumber;
 		DHCP_Config Config;
-
+		unsigned char CurrentIpForOffer[4] = {192, 168, 200, 1};
+		std::deque<IpAddr> OfferQueue;
 		std::unordered_map <std::string, u_long> MacIpPairs;
 	};
 };

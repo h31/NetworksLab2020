@@ -52,6 +52,8 @@ namespace PXE_Server {
 				Config.MyIp = tokens[i + 1];
 				ParseAddrToBytes((char*)&Config.DHCPIp[0], tokens[i + 1]);
 			}
+			else if(tokens[i] == "start-ip")
+				ParseAddrToBytes((char*)&Config.StartIp[0], tokens[i + 1]);
 			else if (tokens[i] == "subnet-ip")
 				ParseAddrToBytes((char*)&Config.RouterIp[0], tokens[i + 1]);
 			else if (tokens[i] == "subnet-mask")
@@ -62,6 +64,16 @@ namespace PXE_Server {
 				ParseAddrToBytes((char*)&Config.TFTPIp[0], tokens[i + 1]);
 			else if (tokens[i] == "router-ip")
 				ParseAddrToBytes((char*)&Config.RouterIp[0], tokens[i + 1]);
+			else if(tokens[i] == "pool-size")
+				Config.PoolSize = std::stoi(tokens[i + 1]);
+			else if (tokens[i] == "filename")
+			{
+				if (tokens[i].size() < 21)
+				{
+					bzero(Config.BootFilename, 21);
+					strcpy(Config.BootFilename, tokens[i].c_str());
+				}
+			}
 		}
 	}
 
@@ -141,6 +153,8 @@ namespace PXE_Server {
 		bzero(&BOOTPReplyData.BootFilename, 128);
 		memcpy(&BOOTPReplyData.TransactionID[0], &BootpRequestData.TransactionID[0], 4);
 		memcpy(&BOOTPReplyData.ClientMacAddress[0], &BootpRequestData.ClientMacAddress[0], 6);
+		memcpy(&BOOTPReplyData.YourIpAddr[0], BootpRequestData.YourIpAddr, 4);
+		memcpy(&BOOTPReplyData.BootFilename[0], &Config.BootFilename[0], 21);
 		//copy data to buffer
 		char* BootReplyPtr = (char*)&BOOTPReplyData;
 		memcpy(&BufReply[0], &BootReplyPtr[0], 236);
@@ -185,9 +199,10 @@ namespace PXE_Server {
 		i += 4;
 		//Option 67 - BOOTFILENAME
 		BufReply[i++] = Option_067;
-		BufReply[i++] = 21;
-		strncpy(&BufReply[i], (const char*)&Config.BootFilename[0], 21); //Boot Filenam
-		i += 21;
+		size_t FilenameLength = strlen(Config.BootFilename) + 1;
+		BufReply[i++] = FilenameLength;
+		strncpy(&BufReply[i], (const char*)&Config.BootFilename[0], FilenameLength); //Boot Filenam
+		i += FilenameLength;
 		//Option 44 - NetBios Over TcpIp Name Server
 		BufReply[i++] = Option_044;
 		BufReply[i++] = 4;
@@ -237,6 +252,8 @@ namespace PXE_Server {
 		struct sockaddr_in cli_addr;
 		int clilen = sizeof(cli_addr);
 
+		memcpy(CurrentIpForOffer, Config.StartIp, 4);
+
 		while (true)
 		{
 			memset((void*)buf, '\0', BUFLEN);
@@ -257,12 +274,21 @@ namespace PXE_Server {
 				{
 				case DHCPDiscover: 
 				{
-					printf("DHCP Discover message from %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+					OfferQueue.push_back({ {CurrentIpForOffer[0], CurrentIpForOffer[1], CurrentIpForOffer[2], CurrentIpForOffer[3]} });
+					CurrentIpForOffer[3] = CurrentIpForOffer[3] % (Config.StartIp[3] + Config.PoolSize);
+					memcpy(BootpRequestData.YourIpAddr, CurrentIpForOffer, 4);
+					printf("DHCP Discover message\n");
+					printf("DHCP Offer IP - %d.%d.%d.%d\n", CurrentIpForOffer[0], CurrentIpForOffer[1], CurrentIpForOffer[2], CurrentIpForOffer[3]);
+					CurrentIpForOffer[3]++;
 					SendReply(DHCPMessageType::DHCPOffer, BootpRequestData);
 				} break;
 				case DHCPRequest: 
 				{
-					printf("DHCP Request message from %s:%d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+					unsigned char* ptr = OfferQueue.front().Addr;
+					memcpy(BootpRequestData.YourIpAddr, ptr, 4);
+					OfferQueue.pop_front();
+					printf("DHCP Request message\n");
+					printf("DHCP ACK IP - %d.%d.%d.%d\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 					SendReply(DHCPMessageType::DHCPAck, BootpRequestData);
 				} break; 
 				}

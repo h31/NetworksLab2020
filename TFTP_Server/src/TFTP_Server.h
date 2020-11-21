@@ -7,9 +7,9 @@
 #include "UnixLib.h"
 #endif
 
-#include <unordered_map>
-#include <thread>
 #include <mutex>
+#include <thread>
+#include <unordered_map>
 
 namespace PXE_Server {
 
@@ -25,29 +25,31 @@ namespace PXE_Server {
 #define OP_ACK_ANOTHER 0x06
 
 //Buffer Size
-#define BUFLEN 2048
+#define OP_RPQ_BUFF_LEN 128
+#define OP_FILE_INFO_BUFF_LEN 2 + 50
 #define OP_DATA_BUFF_LEN 2 + 2 + 2048 //Opcode + Block Number + Data Part
 
-#define MAX_THREAD_POOL_SIZE 2
+#define MAX_THREAD_POOL_SIZE 3
+
+#define FILE_NOT_FOUND 0
+#define NEED_TSIZE true
+#define NOT_NEED_TSIZE false
 
 	enum TransferingStatus
 	{
 		WAIT      =  0,
 		DATA      =  1,
-		FILE_INFO =  2,
-		SEND_AGAIN=  3,
-		END       =  4
+		SEND_AGAIN=  2,
+		END       =  3
 	};
 
 	struct ClientTransferInfo
 	{
 		struct sockaddr_in cli_addr;
-		size_t ThreadId          = 0;
-		size_t BlockSize         = 0;
-		size_t TSizeBytes        = 0;
-		bool NeedTsize           = false;
-		uint16_t BlockNumAcknoledged = 0;
-		uint16_t BlockNumData        = 1;
+		size_t BlockSize         =  0;
+		size_t TSizeBytes        =  0;
+		int16_t ThreadId         = -1;
+		uint16_t BlockNumData    =  1;
 		std::string filename = "";
 		TransferingStatus Status = TransferingStatus::WAIT;
 	};
@@ -109,9 +111,12 @@ namespace PXE_Server {
 		char* DesearilizeString(std::string& Dst, const char* Src);
 		void DesearilizeReadRequest(char* buf, int size, struct sockaddr_in& cli_addr, TFTP_RPQ_WRQ_PACKET& RPQPacket);
 		
+		size_t GetFileSize(std::string& Filename);
 		size_t ReadStrAsUint(char* Src);
 		size_t WriteUintAsStr(char* Dst, size_t Value);
 
+		void SendNotFoundError(struct sockaddr_in& cli_addr);
+		void SendFileInfo(struct sockaddr_in& cli_addr, bool IsTsizeNeed);
 		void SendDataLooper(struct sockaddr_in& cli_addr);
 
 		void ReceiveRPQPacket();
@@ -123,7 +128,7 @@ namespace PXE_Server {
 		bool IsRunning;
 		//Client Ip Addr and Least bytes to transfer
 		std::unordered_map<u_long, ClientTransferInfo> ClientsAddrBytesMap;
-		std::mutex Mutex;
 		std::vector<std::thread> ThreadPool;
+		std::mutex Mutex;
 	};
 };
