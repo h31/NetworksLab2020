@@ -1,98 +1,117 @@
-# Server lab 1
 import socket
-import threading
-from datetime import datetime
+import common
 import os
+# from common import MAX_BLOCK_SIZE, WRQ, get_blocknum, get_opcode
 
-HEADER_LENGTH = 10
-
-IP = "127.0.0.1"
-PORT = 5001
-clients = {}
-
+HOST = "127.0.0.1"
+PORT = 3000
+SERVER_ADDR = (HOST, PORT)
+block_num_RRQ = 0
+block_num_WRQ = 0
+is_last_packet = False
+client = []
+file_do = [None] * 2
 
 def main():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((IP, PORT))
-    server.listen(5)
-    print("Start listenning")
-    try:
-        while True:
-            cli_sock, cli_addr = server.accept()
-            nickname = receive_msg(cli_sock)
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server.bind(SERVER_ADDR)
+    handle_client(server)
 
-            if nickname:
-                clients[cli_sock] = nickname
-                current_time = datetime.now().strftime("%H:%M")
-                print(f"At {current_time} New client has connected")
-                notify('+1', cli_sock)
-                handler_thread = threading.Thread(target=handler_client, args=(cli_sock, ))
-                handler_thread.start()
-    except KeyboardInterrupt:
-        for cl in clients:
-            cl.shutdown(socket.SHUT_WR)
-            cl.close()
-        server.shutdown(socket.SHUT_WR)
-        server.close()
-        os._exit(0)
-
-def broadcast(msg, cli_sock):
-    for client in clients:
-        if client != cli_sock:
-            client.send(msg)
-
-def notify(typeOfn, cli_sock):
-    code_n = f'{typeOfn:<{HEADER_LENGTH}}'.encode('utf-8')
-    nickname = clients[cli_sock]
-    notice = ""
-    if (typeOfn == '+1'):
-        notice = f"{nickname['data'].decode('utf-8')} has join the chat".encode('utf-8')
-    if (typeOfn == '-1'):
-        notice = f"{nickname['data'].decode('utf-8')} has out from the chat".encode('utf-8')
-    notice_header = f"{len(notice):<{HEADER_LENGTH}}".encode('utf-8')
-    msg = code_n + notice_header + notice
-    broadcast(msg, cli_sock)
-    
-def receive_msg(cli_sock):
-    try:
-        msg_header = cli_sock.recv(HEADER_LENGTH)
-
-        if not len(msg_header):
-            return False
-
-        msg_length = int(msg_header.decode('utf-8').strip())
-
-        return {'header': msg_header, 'data': cli_sock.recv(msg_length)}
-    
-    except ValueError:
-        print("Type of header must be 'int'")
-        return False
-    
-    except:
-        return False
-      
-def handler_client(cli_sock):
+def handle_client(s):
+    global block_num_RRQ
+    global block_num_WRQ
+    global is_last_packet
     while True:
-        msg = receive_msg(cli_sock)
-        nickname = clients[cli_sock]
-        if msg is False:
-            cli_sock.shutdown(socket.SHUT_WR)
-            cli_sock.close()         
-            note = f"{nickname['data'].decode('utf-8')} has disconnected"
-            print(note)
-            notify('-1', cli_sock)
-            del clients[cli_sock]
-            return None
-        
-        send_time = receive_msg(cli_sock)
-        
-        current_time = datetime.now().strftime("%H:%M")
+        pack, addr = s.recvfrom(1024)
+        # print("receive_pack: ", pack)
+        # client.append(addr)
+        opcode = common.get_opcode(pack)
+        # print("opcode: ", opcode)
+        if opcode == common.RRQ:
+            file_n = common.get_filename(pack)
+            file_do[0] = file_n
+            print(f"Server will send file to {addr}")
+            try:
+                fd = open(file_n, 'rb')
+                file_do[1] = fd
+                rd = fd.read(512)
+                # print("doc file ", rd)
+                block_num_RRQ += 1
+                data_pack = common.create_data_packet(block_num_RRQ, rd)
+                # print("data_pack: ", data_pack)
+                s.sendto(data_pack, addr)
+                if(len(data_pack) < common.PACKET_SIZE):
+                    is_last_packet == True
+            except FileNotFoundError:
+                error_pack = common.create_err_packet(common.FILE_NOT_FOUND)
+                # print(error_pack)
+                s.sendto(error_pack, addr)
 
-        print(f'At {current_time} received message from {nickname["data"].decode("utf-8")}: {msg["data"].decode("utf-8")}')
+        elif opcode == common.WRQ:
+            file_n = common.get_filename(pack)
+            if os.path.exists(file_n):
+                error_pack = common.create_err_packet(common.FILE_EXIST)
+                # print(error_pack)
+                s.sendto(error_pack, addr)
+            else:
+                file_do[0] = file_n
+                print(f"Server will receive file from {addr}")
+                fd = open(file_n, 'wb')
+                file_do[1] = fd
+                # send ACK
+                ack_pack = common.create_ack_packet(block_num_WRQ)
+                s.sendto(ack_pack, addr)
+                block_num_WRQ += 1
 
-        full_msg = nickname['header'] + nickname['data'] + msg['header'] + msg['data'] + send_time['header'] + send_time['data']
-        broadcast(full_msg, cli_sock)
+        elif opcode == common.ACK:
+            # receive ACK and send file
+            num = common.get_blocknum(pack)
+            if num == block_num_RRQ:
+                print(f'Data packet number {num} has been sent')
+            else:
+                print("Packet lost")
+                continue
+            if is_last_packet:
+                print("All of file has been sent")
+                reset()
+            else:
+                block_num_RRQ += 1
+                data = file_do[1].read(512)
+                data_pack = common.create_data_packet(block_num_RRQ, data)
+                s.sendto(data_pack, addr)
+                if(len(data_pack) < common.PACKET_SIZE):
+                    is_last_packet = True
+            
+        elif opcode == common.DATA:
+            # receive DATA and write to file then send ACK
+            data = common.get_data(pack)
+            num = common.get_blocknum(pack)
+            if block_num_WRQ == num:
+                print(f'Data packet number {num} has been receive')
+            else:
+                print(f"Unexpected block num {num}")
+                continue
+            file_do[1].write(data)
+            ack_pack = common.create_ack_packet(block_num_WRQ)
+            s.sendto(ack_pack, addr)
+            block_num_WRQ += 1
+            if len(data) < common.PACKET_SIZE:
+                is_last_packet = True
+                print("File has been receive fully")
+                file_do[1].close()
+                reset()
+                print("After reset: ", block_num_WRQ, block_num_RRQ)
 
+
+def reset():
+    global block_num_RRQ, block_num_WRQ
+    global is_last_packet
+    is_last_packet = False
+    block_num_RRQ = 0
+    block_num_WRQ = 0
+    file_do[0] = None
+    file_do[1] = None
 
 if __name__ == '__main__':
     main()
+        
