@@ -26,28 +26,27 @@ class User:
         self.data = b''
 
 
-def read(filename):
+def read(filename, server=True):
     try:
-        with open('files/' + filename, 'rb') as f:
+        with open(('files/' if server else '') + filename, 'rb') as f:
             data = f.read()
         return data
     except:
         return None
 
 
-def store(filename, data, mode):
+def store(filename, data, mode, server=True):
     from tftp_formats import Mode, mail, netascii
     if mode == Mode.NETASCII:
-        with open('files/' + filename, 'wb') as f:
+        with open(('files/' if server else '') + filename, 'wb') as f:
             f.write(netascii(data, False))
     elif mode == Mode.OCTET:
-        with open('files/' + filename, 'wb') as f:
+        with open(('files/' if server else '') + filename, 'wb') as f:
             f.write(data)
 
 
 def send(sock, addr, data, mode):
-    print(f'Sending {data.opcode} to {addr} with mode={mode.value}:\n' + data.get_log())
-    from tftp_formats import ACK, DATA, Mode, netascii
+    print(f'sending {data} to {addr}')
     sock.sendto(data.package, addr)
 
 

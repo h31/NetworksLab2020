@@ -19,6 +19,10 @@ class Mode(Enum):
     OCTET = 'octet'
     MAIL = 'mail'
 
+    @staticmethod
+    def values():
+        return [e.value for e in Mode]
+
 
 class ErrorCode(Enum):
     NOTDEFINED = 0
@@ -113,8 +117,8 @@ class RRQ:
             + int_to_n_bytes(0, 1)
         )
 
-    def get_log(self):
-        return f'\tfilename: {self.filename}\n\tmode: {self.mode}'
+    def __str__(self):
+        return f'RRQ <filename={self.filename}, mode={self.mode}>'
 
 
 class WRQ(RRQ):
@@ -127,6 +131,9 @@ class WRQ(RRQ):
             + mode.encode()
             + int_to_n_bytes(0, 1)
         )
+
+    def __str__(self):
+        return f'WRQ <filename={self.filename}, mode={self.mode}>'
 
 
 class DATA:
@@ -149,8 +156,8 @@ class DATA:
             + data
         )
 
-    def get_log(self):
-        return f'\tblock: {self.block}\n\tdata length: {len(self.data)}'
+    def __str__(self):
+        return f'DATA <block={self.block}, bytes={len(self.data)}>'
 
 
 class ACK:
@@ -168,8 +175,8 @@ class ACK:
         from utilz import int_to_n_bytes
         return int_to_n_bytes(self.opcode.value) + int_to_n_bytes(self.block)
 
-    def get_log(self):
-        return f'\tblock: {self.block}'
+    def __str__(self):
+        return f'ACK <block={self.block}>'
 
 
 class ERROR:
@@ -203,8 +210,8 @@ class ERROR:
             + int_to_n_bytes(0, 1)
         )
 
-    def get_log(self):
-        return f'\terror code: {self.code}\n\terror message: {self.message}'
+    def __str__(self):
+        return f'ERROR <code={self.code}, message={self.message}>'
 
 
 opcode_to_package = {
