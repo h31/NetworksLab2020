@@ -71,7 +71,7 @@ class ReceiveMessage:
         if not self.end_receive_length:
             self.receive_length()
         else:
-            length = int(self.message_length.decode('utf-8'))
+            length = int(self.message_length)
             self.buffer_message += self.confirmation_of_message(length - self.actual_length)
             if self.actual_length == length:
                 self.end_receive = True
@@ -91,14 +91,16 @@ class ReceiveMessage:
     '''Метод confirmation_of_message контролирует получение полного сообщения от пользователя'''
 
     def confirmation_of_message(self, length: int):
-        chunks = []
-        while self.actual_length < length:
+        chunk = b''
+        try:
             chunk = self.socket.recv(length)
-            if chunk == b'':
-                break
-            chunks.append(chunk)
             self.actual_length += len(chunk)
-        return b''.join(chunks)
+        except OSError as e:
+            print(e)
+            print(self.end_receive)
+            print('Осталось получить', length - self.actual_length)
+        finally:
+            return chunk
 
     '''Метод send_message служит для отправки сообщений клиентам. На вход принимает словарь клиентов. Производит
     кодирование времени, имени и сообщения пользователя. Находит длину для каждого из них. Удаляет закодированное
@@ -129,7 +131,7 @@ def convert_to_sixteen_bytes(message):
 def main():
     print('Сервер запущен')
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('', 5001))
+    server.bind(('0.0.0.0', 5004))
     server.listen(5)
     server.setblocking(False)
     inputs = [server]

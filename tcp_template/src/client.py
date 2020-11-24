@@ -69,7 +69,7 @@ def main():
     nickname = input('Введите ваше имя ').encode('utf-8')
     try:
         sock = socket.socket()
-        sock.connect(('localhost', 5001))
+        sock.connect(('51.15.130.137', 5004))
         length = convert_to_sixteen_bytes(nickname).encode('utf-8')
         sock.send(length)
         sock.send(nickname)
