@@ -4,8 +4,8 @@ import socket
 
 from dhcp.dhcp_packet import *
 
-SERVER_PORT = 67
-CLIENT_PORT = 68
+SERVER_PORT = 8067
+CLIENT_PORT = 8068
 
 TIMEOUT = 1000
 BUFFER_SIZE = 4096
@@ -15,7 +15,9 @@ class Server:
     def __init__(self):
         self.server_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.server_socket.bind(('', SERVER_PORT))  # '' represents INADDR_ANY, which is used to bind to all interfaces
+
         self.connected = True
         self.leased_ips = {}
 
@@ -23,17 +25,18 @@ class Server:
         print('Server is running...')
         while self.connected:
             packet_received = self.server_socket.recvfrom(BUFFER_SIZE)
-            try:  # trying to parse. With a correct message should do
-                dhcp_message = DHCPPacket()
-                dhcp_message.convert_from_bytes(packet_received[0])  # get a proper format
-                if packet_received[0][0] == 1:  # message from the client
-                    print(f'Received message from the client with mac {dhcp_message.cha_addr}')
-                    self.process_message(dhcp_message)
-            except Exception as ex:
-                logging.error(ex)
+            #try:  # trying to parse. With a correct message should do
+            dhcp_message = DHCPPacket()
+            dhcp_message.convert_from_bytes(packet_received[0])  # get a proper format
+            if packet_received[0][0] == 1:  # message from the client
+                print(f'Received message from the client with mac {dhcp_message.cha_addr}')
+                print(f'from client {packet_received[1]}')
+                self.process_message(dhcp_message)
+            ''' except Exception as ex:
+                logging.error(ex)'''
 
     def process_message(self, msg):
-        msg_type = int(msg.options[53].data)
+        msg_type = msg.options[53].data
         if msg_type == dhcp_messages_types['DHCPDISCOVER']:  # discover received
             print('Discover accepted')
             offer = self.create_offer(msg)
@@ -44,7 +47,6 @@ class Server:
             ack = self.create_ack(msg)
             if msg.cia_addr != '0.0.0.0' and msg.options[54].data == server_address:
                 ack.cia_addr = msg.cia_addr
-                # self.send_unicast(ack.convert_to_bytes(), ack.cia_addr)
                 self.send_broadcast(ack.convert_to_bytes())
                 print('Ack sent (ip prolonging requested)')
             else:
@@ -56,11 +58,7 @@ class Server:
             self.release_ip(msg.cia_addr)
 
     def send_broadcast(self, msg):
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.server_socket.sendto(msg, (broadcast_mask, 68))
-
-    def send_unicast(self, msg, client_ip):
-        self.server_socket.sendto(msg, (client_ip, SERVER_PORT))
+        self.server_socket.sendto(msg, (broadcast_mask, CLIENT_PORT))
 
     def lease_ip(self, client_mac):
         net = IPv4Network(f'{start_net_address}/{subnet_mask}')

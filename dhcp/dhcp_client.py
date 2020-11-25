@@ -1,6 +1,4 @@
-from datetime import datetime
 from generate_mac import generate_mac
-from ipaddress import IPv4Network
 import secrets
 import socket
 import threading
@@ -8,8 +6,8 @@ import threading
 from dhcp.dhcp_packet import *
 from dhcp.dhcp_collections import *
 
-SERVER_PORT = 67
-CLIENT_PORT = 68
+SERVER_PORT = 8067
+CLIENT_PORT = 8068
 BUFFER_SIZE = 4096
 
 
@@ -25,12 +23,15 @@ class Client:
     def __init__(self):
         self.client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.client_socket.bind(('', CLIENT_PORT))
         self.transaction_id = secrets.token_hex(4)
         self.mac = generate_mac.total_random()
+        print(f'my mac is {self.mac}')
 
         self.dhcp_packet = DHCPPacket()
-        self.dhcp_packet.x_id = self.transaction_id
+        self.dhcp_packet.x_id = int(self.transaction_id, 16)
+        print('x_id ', self.dhcp_packet.x_id)
         self.dhcp_packet.cha_addr = self.mac
 
         self.connected = True
@@ -55,14 +56,17 @@ class Client:
 
     def process_message(self, msg):
         msg_type = int(msg.options[53].data)
-        if msg_type == dhcp_messages_types['DHCPOFFER'] and msg.cha_addr == self.mac:  # offer received
+        print('Processing received message...')
+        print(f'my char addr: {msg.cha_addr.lower() == self.mac.lower()}')
+        print(msg_type)
+        if msg_type == dhcp_messages_types['DHCPOFFER'] and msg.cha_addr.lower() == self.mac.lower():  # offer received
             print('Offer accepted')
             if self.msg_was_sent_to_me(msg):
+                self.ip_offered = msg.yia_addr
+                self.server_address = inet_ntoa(msg.sia_addr)
                 print(
                     f"Offer was addressed to this client. IP offered: {self.ip_offered}, server address:"
                     f" {self.server_address}")
-                self.ip_offered = msg.yia_addr
-                self.server_address = inet_ntoa(msg.sia_addr)
                 request = self.create_request()
                 request.add_options({
                     50: self.ip_offered,
@@ -72,7 +76,7 @@ class Client:
                 print("Request sent")
             else:
                 print("Caught offer addressed to another client")
-        elif msg_type == dhcp_messages_types['DHCPACK'] and msg.cha_addr == self.mac:  # acknowledge received
+        elif msg_type == dhcp_messages_types['DHCPACK'] and msg.cha_addr.lower() == self.mac.lower():  # acknowledge received
             print('Acknowledge accepted')
             if not self.msg_was_sent_to_me(msg):
                 return
@@ -91,19 +95,14 @@ class Client:
         event.wait(int(self.ip_lease_duration) / 2)  # request for renewal after half of lease time
         request = self.create_request()
         request.cia_addr = self.ip_got
-        #self.send_unicast(request.convert_to_bytes())  # send request for ip prolonging
         self.send_broadcast(request.convert_to_bytes())
         print("Request for prolonging sent")
 
     def msg_was_sent_to_me(self, msg):
-        return True if msg.cha_addr == self.mac else False
+        return True if msg.cha_addr.lower() == self.mac.lower() else False
 
     def send_broadcast(self, msg):
-        self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.client_socket.sendto(msg, (broadcast_mask, 67))
-
-    def send_unicast(self, msg):
-        self.client_socket.sendto(msg, (self.server_address, SERVER_PORT))
+        self.client_socket.sendto(msg, (broadcast_mask, SERVER_PORT))
 
     def create_discover(self):
         dhcp_packet = self.dhcp_packet
