@@ -64,6 +64,7 @@ class Client:
             if self.msg_was_sent_to_me(msg):
                 self.ip_offered = msg.yia_addr
                 self.server_address = inet_ntoa(msg.sia_addr)
+                self.dhcp_packet.sia_addr = self.server_address
                 print(
                     f"Offer was addressed to this client. IP offered: {self.ip_offered}, server address:"
                     f" {self.server_address}")
@@ -82,6 +83,7 @@ class Client:
                 return
             if self.ip_got == '0.0.0.0':  # ack after 1st request (we are about to get an ip)
                 self.ip_got = msg.yia_addr
+                self.dhcp_packet.cia_addr = self.ip_got
                 self.ip_lease_duration = msg.options[51].data
             self.create_waiting_for_renewal_thread()  # either 1st ack or ack after requesting for lease prolonging
 

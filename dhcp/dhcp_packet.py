@@ -28,8 +28,8 @@ class DHCPPacket:
         for option_tag, option_data in options.items():  # add options to dict
             if option_tag != 53:
                 option_data = str(option_data)
-            self.options[option_tag] = Option(option_tag, option_data)
-        self.options[255] = Option(255)
+            self.options[option_tag] = self.Option(option_tag, option_data)
+        self.options[255] = self.Option(255)
 
     def clear_options(self):
         self.options.clear()
@@ -130,39 +130,37 @@ class DHCPPacket:
             else:
                 data = None
                 index += 1
-            self.options[tag] = Option(tag, data)
+            self.options[tag] = self.Option(tag, data)
         print('done converting from bytes')
 
+    class Option:
+        tag = None
+        len = None
+        data = None
 
-class Option:
-    tag = None
-    len = None
-    data = None
+        def __init__(self, tag, data=None):
+            self.tag = int(tag)
+            if data is not None:
+                self.len = len(data) if tag != 53 else 1
+                self.data = data
+                print(f'adding option. tag:{tag}, data:{data} len: {self.len}, type of data: {type(data)} ')
 
-    def __init__(self, tag, data=None):
-        self.tag = int(tag)
-        if data is not None:
-            self.len = len(data) if tag != 53 else 1
-            self.data = data
-            print(f'adding option. tag:{tag}, data:{data} len: {self.len}, type of data: {type(data)} ')
+        '''If we have 0 or 255 in the tag field, there is no value
+         If 0: such option will simply be skipped
+         If 255: the sign that that was the last option in the options list'''
 
+        def get_option(self):
+            return (self.tag, self.len, self.data) if self.data is not None else [self.tag]
 
-    '''If we have 0 or 255 in the tag field, there is no value
-     If 0: such option will simply be skipped
-     If 255: the sign that that was the last option in the options list'''
-
-    def get_option(self):
-        return (self.tag, self.len, self.data) if self.data is not None else [self.tag]
-
-    def get_option_bytes(self):
-        if not self.data:
-            return bytes([self.tag])
-        else:
-            print(f'tag: {self.tag}, len: {self.len}, data: {self.data}, type of data: {type(self.data)}')
-            if self.tag == 53:
-                return bytes([self.tag, self.len, self.data])
+        def get_option_bytes(self):
+            if not self.data:
+                return bytes([self.tag])
             else:
-                data = bytes(self.data, 'utf-8')
-                bytes_arr = bytes([self.tag, len(data)])
-                bytes_arr += data
-                return bytes_arr
+                print(f'tag: {self.tag}, len: {self.len}, data: {self.data}, type of data: {type(self.data)}')
+                if self.tag == 53:
+                    return bytes([self.tag, self.len, self.data])
+                else:
+                    data = bytes(self.data, 'utf-8')
+                    bytes_arr = bytes([self.tag, len(data)])
+                    bytes_arr += data
+                    return bytes_arr
