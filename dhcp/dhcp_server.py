@@ -4,8 +4,8 @@ import socket
 
 from dhcp.dhcp_packet import *
 
-SERVER_PORT = 8067
-CLIENT_PORT = 8068
+SERVER_PORT = 67
+CLIENT_PORT = 68
 
 TIMEOUT = 1000
 BUFFER_SIZE = 4096
@@ -99,6 +99,8 @@ class Server:
             51: lease_duration,
             54: server_address
         })
+        print('offer options')
+        print(dhcp_packet.options)
         return dhcp_packet
 
     def create_ack(self, msg_from_client):

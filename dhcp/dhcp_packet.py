@@ -26,10 +26,7 @@ class DHCPPacket:
 
     def add_options(self, options):
         for option_tag, option_data in options.items():  # add options to dict
-            if option_tag != 53:
-                option_data = str(option_data)
             self.options[option_tag] = self.Option(option_tag, option_data)
-        self.options[255] = self.Option(255)
 
     def clear_options(self):
         self.options.clear()
@@ -56,7 +53,7 @@ class DHCPPacket:
         print('server ip: ', byte_packet[20:24])
         byte_packet[24:28] = inet_aton(self.gia_addr)
         print('gateway ip: ', byte_packet[24:28])
-        byte_packet[28:34] = self.mac_to_bytes(self.cha_addr)  # mac addr to bytes
+        byte_packet[28:34] = mac_to_bytes(self.cha_addr)  # mac addr to bytes
         byte_packet[34:44] = b'\0' * 10
         print('client mac: ', byte_packet[38:44])
 
@@ -75,21 +72,9 @@ class DHCPPacket:
         for option in self.options.values():
             current_option = option.get_option_bytes()
             byte_packet += current_option
+        byte_packet += bytes([255])
         print('done converting to bytes')
         return byte_packet
-
-    def mac_to_bytes(self, mac_string):
-        mac_parts = mac_string.split(':')
-        mac_byte_list = [bytes.fromhex(part) for part in mac_parts]
-        return b''.join(mac_byte_list)
-
-    def mac_from_bytes(self, mac_bytes):
-        mac_string = ''
-        for mac_byte in mac_bytes:
-            mac_string += bytes([mac_byte]).hex()
-            if mac_bytes.index(mac_byte) != len(mac_bytes) - 1:
-                mac_string += ':'
-        return mac_string
 
     def convert_from_bytes(self, byte_packet):
         print(byte_packet)
@@ -106,7 +91,7 @@ class DHCPPacket:
         self.gia_addr = inet_ntoa(byte_packet[24:28])
         print(f'gia addr: {self.gia_addr}')
         print(byte_packet[38:44])
-        self.cha_addr = self.mac_from_bytes(byte_packet[28:34])
+        self.cha_addr = mac_from_bytes(byte_packet[28:34])
         print(f'char addr: {self.cha_addr}')
 
         self.s_name = byte_packet[44:108]
@@ -123,44 +108,54 @@ class DHCPPacket:
                 data_len = byte_packet[index + 1]
                 if tag == 53:
                     data = int.from_bytes(byte_packet[index + 2:index + 2 + data_len], byteorder='big')
+                elif tag == 51:
+                    data = struct.unpack('!I', byte_packet[index + 2:index + 2 + data_len])[0]
+                elif tag == 61:
+                    data = mac_from_bytes(byte_packet[index + 2:index + 2 + data_len])
+                elif tag in [50, 54, 1, 3, 6]:
+                    data = inet_ntoa(byte_packet[index + 2:index + 2 + data_len])
                 else:
                     data = byte_packet[index + 2:index + 2 + data_len].decode('utf-8')
                 index += 2 + data_len
                 print(f'optios decoded: tag={tag}, len: {data_len}, data={data}')
+                self.options[tag] = self.Option(tag, data)
             else:
-                data = None
                 index += 1
-            self.options[tag] = self.Option(tag, data)
         print('done converting from bytes')
 
     class Option:
         tag = None
-        len = None
         data = None
 
         def __init__(self, tag, data=None):
             self.tag = int(tag)
             if data is not None:
-                self.len = len(data) if tag != 53 else 1
+                print(f'adding option. tag:{tag}, data:{data}, type of data: {type(data)} ')
                 self.data = data
-                print(f'adding option. tag:{tag}, data:{data} len: {self.len}, type of data: {type(data)} ')
 
         '''If we have 0 or 255 in the tag field, there is no value
          If 0: such option will simply be skipped
          If 255: the sign that that was the last option in the options list'''
 
-        def get_option(self):
-            return (self.tag, self.len, self.data) if self.data is not None else [self.tag]
-
         def get_option_bytes(self):
             if not self.data:
                 return bytes([self.tag])
             else:
-                print(f'tag: {self.tag}, len: {self.len}, data: {self.data}, type of data: {type(self.data)}')
                 if self.tag == 53:
-                    return bytes([self.tag, self.len, self.data])
+                    length = len(bytes([self.data]))
+                    print(
+                        f'convert option. tag: {self.tag}, len: {length}, data: {self.data}, type of data: {type(self.data)}')
+                    return bytes([self.tag, length, self.data])
+                elif self.tag == 51:
+                    data = struct.pack('!I', self.data)
+                elif self.tag == 61:
+                    data = mac_to_bytes(self.data)
+                elif self.tag in [50, 54, 1, 3, 6]:
+                    data = inet_aton(self.data)
                 else:
                     data = bytes(self.data, 'utf-8')
-                    bytes_arr = bytes([self.tag, len(data)])
-                    bytes_arr += data
-                    return bytes_arr
+                bytes_arr = bytes([self.tag, len(data)])
+                bytes_arr += data
+                print(
+                    f'convert option. tag: {self.tag}, len: {len(data)}, data: {self.data}, type of data: {type(self.data)}')
+                return bytes_arr

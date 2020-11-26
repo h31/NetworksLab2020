@@ -9,6 +9,22 @@ dns_server = '192.168.1.1'
 
 lease_duration = 5 * 2  # seconds. set to  3600 * 2 for 2 hours
 
+
+def mac_to_bytes(mac_string):
+    mac_parts = mac_string.split(':')
+    mac_byte_list = [bytes.fromhex(part) for part in mac_parts]
+    return b''.join(mac_byte_list)
+
+
+def mac_from_bytes(mac_bytes):
+    mac_string = ''
+    for mac_byte in mac_bytes:
+        mac_string += bytes([mac_byte]).hex()
+        if mac_bytes.index(mac_byte) != len(mac_bytes) - 1:
+            mac_string += ':'
+    return mac_string
+
+
 dhcp_messages_types = {'DHCPDISCOVER': 1,
                        'DHCPOFFER': 2,
                        'DHCPREQUEST': 3,

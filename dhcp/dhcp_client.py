@@ -6,8 +6,8 @@ import threading
 from dhcp.dhcp_packet import *
 from dhcp.dhcp_collections import *
 
-SERVER_PORT = 8067
-CLIENT_PORT = 8068
+SERVER_PORT = 67
+CLIENT_PORT = 68
 BUFFER_SIZE = 4096
 
 
