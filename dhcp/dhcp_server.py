@@ -1,5 +1,6 @@
 from datetime import datetime
 from ipaddress import IPv4Network
+import logging
 import socket
 
 from dhcp.dhcp_packet import *
@@ -7,7 +8,6 @@ from dhcp.dhcp_packet import *
 SERVER_PORT = 67
 CLIENT_PORT = 68
 
-TIMEOUT = 1000
 BUFFER_SIZE = 4096
 
 
@@ -16,7 +16,8 @@ class Server:
         self.server_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.server_socket.bind(('', SERVER_PORT))  # '' represents INADDR_ANY, which is used to bind to all interfaces
+        self.server_socket.bind(
+            ('192.168.56.1', SERVER_PORT))  # '' represents INADDR_ANY, which is used to bind to all interfaces
 
         self.connected = True
         self.leased_ips = {}
@@ -25,15 +26,16 @@ class Server:
         print('Server is running...')
         while self.connected:
             packet_received = self.server_socket.recvfrom(BUFFER_SIZE)
-            #try:  # trying to parse. With a correct message should do
-            dhcp_message = DHCPPacket()
-            dhcp_message.convert_from_bytes(packet_received[0])  # get a proper format
-            if packet_received[0][0] == 1:  # message from the client
-                print(f'Received message from the client with mac {dhcp_message.cha_addr}')
-                print(f'from client {packet_received[1]}')
-                self.process_message(dhcp_message)
-            ''' except Exception as ex:
-                logging.error(ex)'''
+            print(packet_received)
+            try:  # trying to parse. With a correct message should do
+                dhcp_message = DHCPPacket()
+                dhcp_message.convert_from_bytes(packet_received[0])  # get a proper format
+                if packet_received[0][0] == 1:  # message from the client
+                    print(f'Received message from the client with mac {dhcp_message.cha_addr}')
+                    print(f'from client {packet_received[1]}')
+                    self.process_message(dhcp_message)
+            except Exception as ex:
+                logging.error(ex)
 
     def process_message(self, msg):
         msg_type = msg.options[53].data

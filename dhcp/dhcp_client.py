@@ -1,4 +1,5 @@
 from generate_mac import generate_mac
+import logging
 import secrets
 import socket
 import threading

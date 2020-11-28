@@ -1,5 +1,3 @@
-from binascii import unhexlify, hexlify
-import logging
 from socket import inet_aton, inet_ntoa
 import struct
 
@@ -115,7 +113,7 @@ class DHCPPacket:
                 elif tag in [50, 54, 1, 3, 6]:
                     data = inet_ntoa(byte_packet[index + 2:index + 2 + data_len])
                 else:
-                    data = byte_packet[index + 2:index + 2 + data_len].decode('utf-8')
+                    data = byte_packet[index + 2:index + 2 + data_len]
                 index += 2 + data_len
                 print(f'optios decoded: tag={tag}, len: {data_len}, data={data}')
                 self.options[tag] = self.Option(tag, data)
@@ -153,7 +151,9 @@ class DHCPPacket:
                 elif self.tag in [50, 54, 1, 3, 6]:
                     data = inet_aton(self.data)
                 else:
-                    data = bytes(self.data, 'utf-8')
+                    print(type(self.data))
+                    print(self.tag)
+                    data = self.data
                 bytes_arr = bytes([self.tag, len(data)])
                 bytes_arr += data
                 print(
