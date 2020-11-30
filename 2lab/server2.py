@@ -1,4 +1,3 @@
-import errno
 import socket
 from datetime import datetime
 from select import select
@@ -12,6 +11,7 @@ CODE = 'utf-8'
 
 clients = {}
 socket_list = []
+buffer = {}
 
 
 def main():
@@ -28,18 +28,11 @@ def main():
 def client_connect(sock):
     client_socket, client_address = sock.accept()
     client_socket.setblocking(False)
-    user = receive_header_and_message(client_socket)
-    if user is False:
-        return
+    buffer[client_socket] = {'message': b'', 'full': False, 'length': 0, 'full_len': False}
+    user = receive_full_message(client_socket)
     socket_list.append(client_socket)
     clients[client_socket] = user
     print(f"New connection from {client_address[0]}:{client_address[1]}, Username: {user['data'].decode(CODE)}")
-
-
-def receive_header_and_message(sock):
-    length = receive_header(sock)
-    header_and_message = receive_message(sock, length)
-    return header_and_message
 
 
 def receive_header(sock):
@@ -48,27 +41,43 @@ def receive_header(sock):
         if not len(message_header):
             return False
         message_length = int(message_header.decode(CODE))
-        return message_length
-    except IOError as e:
-        if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-            return False
+        buffer[sock]['length'] = message_length
+        buffer[sock]['full_len'] = True
+    except ConnectionResetError:
+        return False
 
 
-def receive_message(sock, message_length):
-    message = b""
+def receive_data(sock, data, message_length):
     if not message_length:
         return False
-    while True:
-        try:
-            while message_length != len(message):
-                message += sock.recv(message_length - len(message))
-            return {'header': f"{len(message):<{HEADER_LENGTH}}".encode(CODE), 'data': message}
-        except IOError as e:
-            if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-                return False
-            continue
-        except:
-            return False
+    data += sock.recv(message_length - len(data))
+    if len(data) == message_length:
+        return {'data': data, 'full': True}
+    else:
+        return {'data': data, 'full': False}
+
+
+def receive_full_message(sock):
+    if not buffer[sock]['full_len']:
+        receive_header(sock)
+    length = buffer[sock]['length']
+    if not buffer[sock]['full']:
+        data = buffer[sock]['message']
+        message = receive_data(sock, data, length)
+        if not message:
+            print(f'Closed connection from: {clients[sock]["data"].decode(CODE)}')
+            del clients[sock]
+            del buffer[sock]
+            socket_list.remove(sock)
+            sock.shutdown(socket.SHUT_RDWR)
+            sock.close()
+            return
+        buffer[sock]['message'] = message['data']
+        buffer[sock]['full'] = message['full']
+    if buffer[sock]['full']:
+        message = buffer[sock]['message']
+        buffer[sock] = {'message': b'', 'full': False, 'length': 0, 'full_len': False}
+        return {'header': f"{len(message):<{HEADER_LENGTH}}".encode(CODE), 'data': message}
 
 
 def server(sock):
@@ -79,29 +88,24 @@ def server(sock):
                 if read_socket == sock:
                     client_connect(sock)
                 else:
-                    message = receive_header_and_message(read_socket)
-                    if message is False:
-                        try:
-                            print(f'Closed connection from: {clients[read_socket]["data"].decode(CODE)}')
-                            del clients[read_socket]
-                            socket_list.remove(read_socket)
-                            read_socket.shutdown(socket.SHUT_RDWR)
-                            read_socket.close()
-                            continue
-                        except:
-                            continue
+                    message = receive_full_message(read_socket)
+                    if message:
+                        message_time = datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S").encode(CODE)
+                        time_header = f"{len(message_time):<{HEADER_LENGTH}}".encode(CODE)
+                        time = {"header": time_header, "data": message_time}
+                        user = clients[read_socket]
 
-                    message_time = datetime.utcnow().strftime("%d-%m-%Y %H:%M:%S").encode(CODE)
-                    time_header = f"{len(message_time):<{HEADER_LENGTH}}".encode(CODE)
-                    time = {"header": time_header, "data": message_time}
-                    user = clients[read_socket]
+                        server_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+                        print(f'{server_time} Message from {user["data"].decode(CODE)}: '
+                              f'{message["data"].decode(CODE)}')
+                        for client_socket in clients:
+                            if client_socket != read_socket:
+                                client_socket.send(
+                                    user['header'] + user['data'] + message['header'] + message['data'] + time[
+                                        'header'] + time['data'])
+                    else:
+                        continue
 
-                    server_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-                    print(f'{server_time} Message from {user["data"].decode(CODE)}: {message["data"].decode(CODE)}')
-                    for client_socket in clients:
-                        if client_socket != read_socket:
-                            client_socket.send(user['header'] + user['data'] + message['header'] + message['data'] + time[
-                                'header'] + time['data'])
     except KeyboardInterrupt:
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()

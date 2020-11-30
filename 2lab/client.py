@@ -1,4 +1,3 @@
-import errno
 import socket
 import threading
 from datetime import datetime
@@ -32,39 +31,19 @@ def nick():
         return nickname
 
 
-def receive_header_and_message(sock):
-    length = receive_header(sock)
-    header_and_message = receive_message(sock, length)
-    return header_and_message
-
-
-def receive_header(sock):
-    try:
-        message_header = sock.recv(HEADER_LENGTH)
-        if not len(message_header):
-            return False
-        message_length = int(message_header.decode(CODE))
-        return message_length
-    except IOError as e:
-        if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-            return False
-
-
-def receive_message(sock, message_length):
-    message = b""
-    if not message_length:
-        return False
+def receive_message(sock):
     while True:
         try:
+            message_header = sock.recv(HEADER_LENGTH)
+            if not len(message_header):
+                return False
+            message_length = int(message_header.decode(CODE))
+            message = b""
             while message_length != len(message):
                 message += sock.recv(message_length - len(message))
-            return {'header': f"{len(message):<{HEADER_LENGTH}}".encode(CODE), 'data': message}
-        except IOError as e:
-            if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-                return False
-            continue
+            return {'header': message_header, 'data': message}
         except:
-            return False
+            return
 
 
 def send(sock):
@@ -97,9 +76,9 @@ def receive(sock):
     tz = get_localzone()
     while True:
         try:
-            username = receive_header_and_message(sock)["data"].decode(CODE)
-            message = receive_header_and_message(sock)["data"].decode(CODE)
-            message_time = receive_header_and_message(sock)["data"].decode(CODE)
+            username = receive_message(sock)["data"].decode(CODE)
+            message = receive_message(sock)["data"].decode(CODE)
+            message_time = receive_message(sock)["data"].decode(CODE)
             client_time = datetime.strptime(message_time, "%d-%m-%Y %H:%M:%S").now(tz).strftime("%d-%m-%Y %H:%M:%S")
             print(f'<{client_time}>[{username}]: {message}')
         except:
