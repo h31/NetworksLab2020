@@ -4,9 +4,12 @@ import common
 import os
 # from common import PACKET_SIZE, create_ack_packet, get_blocknum
 
-HOST = "127.0.0.1"
-POST = 3000
-SERVER_ADDR = (HOST, POST)
+HOST = "192.168.1.109"
+#HOST = "127.0.0.1"
+PORT = 69
+#PORT = 6106
+#PORT = 3000
+SERVER_ADDR = (HOST, PORT)
 
 block_num = 1
 is_last_packet = False
@@ -25,9 +28,10 @@ def main():
             print(rq)
             cli_sock.sendto(rq, SERVER_ADDR)
             while not is_last_packet:
-                cli_sock.settimeout(3)
+                #cli_sock.settimeout(3)
                 try:
                     pack, addr = cli_sock.recvfrom(common.MAX_BLOCK_SIZE)
+                    # print("packet nek:", pack)
                     rd = recv_file(pack, addr, fd, cli_sock)
                     if rd == False:
                         os.remove(filename)
@@ -44,10 +48,11 @@ def main():
             try:
                 fd = open(filename, 'rb') 
                 cli_sock.sendto(rq, SERVER_ADDR)
-                cli_sock.settimeout(3)
+                #cli_sock.settimeout(3)
                 while not is_last_packet:
                     pack, addr = cli_sock.recvfrom(common.MAX_BLOCK_SIZE)
-                    sd = send_file(pack, cli_sock, fd)
+                    # print("ACK nek:", pack)
+                    sd = send_file(pack, cli_sock, fd, addr)
             except timeout as e:
                 print(e)
                 sd = False
@@ -89,15 +94,16 @@ def recv_file(packet, addr, fd, s):
     
     elif opcode == common.DATA:
         blocks = common.get_blocknum(packet)
-        if blocks != block_num:
-            print(f"Unexpected block num {block_num}")
-            return
-        else:
-            print(f"Packet number {blocks} has been received")
+        # if blocks != block_num:
+        #     print(f"Unexpected block num {block_num}")
+        #     #return
+        # else:
+        print(f"Packet number {blocks} has been received")
         data = common.get_data(packet)
         fd.write(data)
         ack_pack = common.create_ack_packet(blocks)
-        s.sendto(ack_pack, SERVER_ADDR)
+        # print("ack gui di nek:", ack_pack)
+        s.sendto(ack_pack, addr)
         block_num += 1
         if packet_len < common.PACKET_SIZE + 4:
             is_last_packet = True
@@ -111,7 +117,7 @@ def reset():
     block_num = 1
     is_last_packet = False
 
-def send_file(packet, s, fd):
+def send_file(packet, s, fd, addr):
     global is_last_packet
     global block_num
 
@@ -133,7 +139,7 @@ def send_file(packet, s, fd):
         print("block_num", block_num)
         data = fd.read(512)
         data_pack = common.create_data_packet(block_num, data)
-        s.sendto(data_pack, SERVER_ADDR)
+        s.sendto(data_pack, addr)
         block_num += 1
         if len(data_pack) < common.PACKET_SIZE + 4:
             is_last_packet = True

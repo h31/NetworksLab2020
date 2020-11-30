@@ -58,4 +58,4 @@ def get_err_msg(packet):
     return packet[4:-1].decode('utf-8')
 
 def get_filename(packet):
-    return packet[2:-1].split(b'\x00')[0].decode('utf-8')
+    return packet[2:-1].partition(b'\x00')[0].decode('utf-8')
