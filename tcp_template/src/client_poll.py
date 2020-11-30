@@ -19,8 +19,10 @@ class ThreadReceive(threading.Thread):
 
     def run(self):
         while True:
-            length_message = int(self.ssocket.recv(8).decode('UTF-8'))
+            length_name = int(self.ssocket.recv(8).decode('UTF-8'))
+            name = self.ssocket.recv(length_name).decode('UTF-8')
             message_time = self.ssocket.recv(8).decode('UTF-8')
+            length_message = int(self.ssocket.recv(8).decode('UTF-8'))
             chunks = []
             bytes_recd = 0
             while bytes_recd < length_message:
@@ -31,18 +33,18 @@ class ThreadReceive(threading.Thread):
                 bytes_recd = bytes_recd + len(chunk)
             data = b''.join(chunks)
             message_time = local_time(message_time)
-            length_name = int(self.ssocket.recv(8).decode('UTF-8'))
-            name = self.ssocket.recv(length_name).decode('UTF-8')
             print(message_time + "[" + name + "]: " + data.decode("UTF-8"))
 
 
-#SERVER = "51.15.130.137"
-SERVER = "127.0.0.1"
+SERVER = "51.15.130.137"
+# SERVER = "127.0.0.1"
 PORT = 5001
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((SERVER, PORT))
-login = input("Enter your login: ")
-client.send(bytes(login, 'UTF-8'))
+login = bytes(input("Enter your login: "), 'UTF-8')
+length_login = bytes('{:08d}'.format(len(login)), 'UTF-8')
+client.send(length_login)
+client.send(login)
 thread_receive = ThreadReceive(client)
 thread_receive.start()
 while True:
