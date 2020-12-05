@@ -50,15 +50,15 @@ def main():
         
         clientTimezone = strftime("%z", gmtime())
         
-        serverTimezone = clientSocket.recv(BLOCK_SIZE).decode("utf-8")
-        print(type(clientTimezone))
+        serverTimezone = clientSocket.recv(BLOCK_SIZE).decode("Windows-1251")
+     
         
          
         
     def _send():
         while True:
             
-            msg = f"{userName}\2{input()}\1".encode("utf-8")
+            msg = f"{userName}\2{input()}\1".encode("Windows-1251")
             
             try:
                 clientSocket.send(msg)
@@ -74,7 +74,9 @@ def main():
         
         while True:
             try:
-                data = clientSocket.recv(BLOCK_SIZE).decode("utf-8")     
+                
+                data = clientSocket.recv(BLOCK_SIZE).decode("Windows-1251")
+               
                                
                 if not data:
                     break

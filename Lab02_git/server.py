@@ -36,7 +36,7 @@ def main():
         
     def _connect(mask):
         global conn
-        timezoneData = strftime("%z", gmtime()).encode("utf-8")
+        timezoneData = strftime("%z", gmtime()).encode("Windows-1251")
         conn, address = serverSocket.accept()
         conn.setblocking(False)
         sys.stdout.write('\b')
@@ -49,8 +49,9 @@ def main():
     
     def _send(conn):
         try:
-        
-            data = conn.recv(BLOCK_SIZE).decode("utf-8")
+             
+            data = conn.recv(BLOCK_SIZE).decode("Windows-1251")
+            
             if not data:
                 print('closing', conn)
                 sel.unregister(conn)
@@ -60,9 +61,9 @@ def main():
                 currentTime = datetime.timestamp(now)   
                 try:
                     if (len(data.split("\2")) > 1):
-                        receiver.send((f"{currentTime}\2{data}").encode("utf-8"))
+                        receiver.send((f"{currentTime}\2{data}").encode("Windows-1251"))
                     else:
-                        receiver.send(data.encode("utf-8"))           
+                        receiver.send(data.encode("Windows-1251"))           
                 except ConnectionResetError:
                     pass           
         except ConnectionResetError:
