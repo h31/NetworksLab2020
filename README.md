@@ -25,3 +25,11 @@ Exit the application by typing `exit` in.
 The server differentiates among the users by their addresses.
 
 When a client disconnects, a server shuts the corresponding connection down and closes the client's socket.
+
+Message codes for pay system:
+1 - enter the system with credentials
+2 - register new user
+3 - get the list of registered users
+4 - transfer a sum to a certain user
+5 - checking up ow much money there is on an account
+6 - quit the system
