@@ -1,5 +1,6 @@
 """Utils for TFTP"""
 
+import time
 from functools import reduce
 
 SETTINGS = {
@@ -18,12 +19,36 @@ class User:
         self.filename = None
         self.block = None
         self.data = b''
+        self._ts = 0
+        self.timeouted = False
+        self._last_package = None
 
     def clear(self):
         self.mode = None
         self.filename = None
         self.block = None
         self.data = b''
+        self._ts = 0
+        self.timeouted = False
+        self._last_package = None
+
+    @property
+    def last_package(self):
+        return self._last_package
+
+    @last_package.setter
+    def last_package(self, package):
+        self._last_package = package
+        self.ts = time.time()
+
+    @property
+    def ts(self):
+        return self._ts
+
+    @ts.setter
+    def ts(self, ts):
+        self.timeouted = False
+        self._ts = ts
 
 
 def read(filename, server=True):

@@ -1,15 +1,32 @@
 """TFTP (rev. 2) server realisation"""
 
 import socket
+import threading
+import time
 
 import exception as e
 import tftp_formats as tf
 import utilz as uz
 
+users = dict()
+
+def timeout_handler(sock):
+    while True:
+        for addr, user in list(users.items()):
+            if time.time() - user.ts >= 5 and addr in users:
+                if user.timeouted:
+                    print(f'user with addr {addr} deleted due to timeouted twice')
+                    del users[addr]
+                elif user.last_package is not None:
+                    print(f'user with addr {addr} timeouted')
+                    user.ts = time.time()
+                    user.timeouted = True
+                    uz.send(sock, addr, user.last_package, user.mode)
+
 
 def eloop(sock):
-    users = dict()
-
+    timeout_thread = threading.Thread(target=timeout_handler, args=(sock, ))
+    timeout_thread.start()
     while True:
         try:
             data, addr = uz.recv(sock)
@@ -36,7 +53,9 @@ def eloop(sock):
 
             users[addr].data = data
             users[addr].block = 0
-            uz.send(sock, addr, tf.DATA.create(1, data[0:512]), users[addr].mode)
+            package = tf.DATA.create(1, data[0:512])
+            users[addr].last_package = package
+            uz.send(sock, addr, package, users[addr].mode)
 
         elif data.opcode == tf.Operation.WRQ:
             users[addr].filename = data.filename
@@ -58,15 +77,20 @@ def eloop(sock):
                 del users[addr]
                 continue
 
-            uz.send(sock, addr, tf.DATA.create(users[addr].block + 1, file), users[addr].mode)
+            package = tf.DATA.create(users[addr].block + 1, file)
+            users[addr].last_package = package
+            uz.send(sock, addr, package, users[addr].mode)
 
         elif data.opcode == tf.Operation.DATA:
-            uz.send(sock, addr, tf.ACK.create(data.block), users[addr].mode)
+            package = tf.ACK.create(data.block)
+            users[addr].last_package = package
+            uz.send(sock, addr, package, users[addr].mode)
             users[addr].data += data.data
             if data.last:
                 uz.store(users[addr].filename, users[addr].data, users[addr].mode)
                 print(f'File {users[addr].filename} with {len(users[addr].data)} bytes stored')
                 del users[addr]
+    timeout_thread.join()
 
 
 def init():
