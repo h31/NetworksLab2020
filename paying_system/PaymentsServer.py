@@ -18,10 +18,10 @@ connections = {}  # [addr][connection]
 
 users_online = {}  # [addr][num of wallet]
 
-sql_get_wallet_num_by_name = "SELECT user_wallet_num FROM users WHERE user_wallet_num=%s" \
+sql_get_wallet_num_by_name = "SELECT user_wallet_num FROM users WHERE user_name=%s" \
                              " AND user_password=crypt(%s, user_password);"
 sql_insert_new_user_data = "INSERT INTO users (user_name, user_password, user_wallet_num, user_sum) VALUES " \
-                           "(%s, crypt(%s, gen_salt('f')), %s, 100) ON CONFLICT DO NOTHING RETURNING 'OK';"
+                           "(%s, crypt(%s, gen_salt('bf')), %s, 100) ON CONFLICT DO NOTHING RETURNING 'OK';"
 sql_get_all_other_wallets = "SELECT user_name, user_wallet_num FROM users WHERE NOT user_wallet_num=%s;"
 sql_subtract_sum = "UPDATE users SET user_sum = user_sum - %s WHERE user_wallet_num = %s RETURNING 'OK';"
 sql_add_sum = "UPDATE users SET user_sum = user_sum + %s WHERE user_wallet_num = %s RETURNING 'OK';"
@@ -29,7 +29,7 @@ sql_get_sum = "SELECT user_sum FROM users WHERE user_wallet_num=%s;"
 
 
 def get_cursor_connection():
-    connection = psycopg2.connect(dbname='infrastructure_3d_db', user='postgres', password='supersecurepassword',
+    connection = psycopg2.connect(dbname='payments_system', user='postgres', password='supersecurepassword',
                                   host='127.0.0.1')
     return connection.cursor(), connection
 
@@ -46,6 +46,7 @@ def connect_users():
 
 
 def build_msg(msg_type, msg_text, params=None):
+    print(f'in build msg. msg type {msg_type}, msg text: {msg_text}, params: {params}')
     if msg_type in [2, 4, 5] and params:
         msg_text = b'\0'.join([bytes(d, 'utf-8') for d in [msg_text, params[0]]])  # text \0 wallet number
     elif msg_type == 3:
@@ -57,13 +58,19 @@ def build_msg(msg_type, msg_text, params=None):
     text_len = len(msg_text)
     msg = bytearray([msg_type])
     msg += bytes(f'{text_len:<{HEADER_LENGTH - 1}}', 'utf-8') + msg_text
+    print('msg bytes: ', msg)
     print(f'Reply for command {msg_type} has been created')
+    print('Qutting build msg. length of msg is ', text_len)
+    return msg
 
 
 def process_message(user):
     while True:
         try:
             message_type, data_header, data = receive_data(user)
+            print(message_type)
+            print(data_header)
+            print(data)
             # close the user connection if smth is wrong with the data received
             # different actions on different message type
             if message_type == 1:  # sign in
@@ -94,7 +101,7 @@ def process_message(user):
             elif message_type == 5:
                 print(f'User {users_online[user]} want to know how much money he has on the account')
                 sum_on_account = get_sum_on_account(users_online[user])
-                connections[user].send(build_msg(message_type, 'Your balance:', (str(sum_on_account), )))
+                connections[user].send(build_msg(message_type, 'Your balance:', (str(sum_on_account),)))
             elif message_type == 6:  # user wants to quit. send goodbye
                 print(f'User {users_online[user]} wants to leave the server')
                 connections[user].send(build_msg(message_type, 'Leaving server...'))
@@ -102,13 +109,15 @@ def process_message(user):
             else:
                 pass
         except ConnectionResetError as ex:
-            print(f'User {users_online[user]} has disconnected unexpectedly:')
+            if user in users_online.keys():
+                print(f'User {users_online[user]} has disconnected unexpectedly:')
             logging.error(ex)
             close_user_connection(user)
             return False
 
 
 def sign_in(user, name, password):
+    print(f'sign in -- name: {name}, pass: {password}')
     cursor, connection = get_cursor_connection()
     cursor.execute(sql_get_wallet_num_by_name, (name, password))
     wallet_num = cursor.fetchall()[0][0]
@@ -165,24 +174,31 @@ def get_sum_on_account(wallet_num):
 
 
 def receive_data(user):
-    data_header = server_socket.receive_bytes_num(HEADER_LENGTH, connections[user])
+    print('receiving data')
+    data_header = server_socket.receive_bytes_num(HEADER_LENGTH + 1, connections[user])
     if not data_header:
         return False, False
     message_type = data_header[0]
+    print(f'message type {message_type}')
+    print(f'rest of header {data_header[1:]}')
     data_length = int(data_header[1:].decode().strip())
+    print(f'message length {data_length}')
     data = None
     if data_length:
-        data = server_socket.receive_bytes_num(data_length, connections[user])
-        data = [d.decode() for d in data.split(b'\0')]
+        data = server_socket.receive_bytes_num(data_length + 1, connections[user])
+        print(f'data in received data {data}')
+        data = [d.decode() for d in data[1:].split(b'\0')]
     return message_type, data_header, data
 
 
 def close_user_connection(user):
     connections[user].shutdown(socket.SHUT_WR)
     connections[user].close()
-    print(f'Client {users_online[user]} has been disconnected')
+    print(f'Disconnecting addr {user}')
     del connections[user]
-    del users_online[user]
+    if user in users_online.keys():
+        print(f'Client {users_online[user]} has been disconnected')
+        del users_online[user]
 
 
 def run_server():
@@ -190,15 +206,44 @@ def run_server():
     server_socket.bind(HOST, PORT)
     server_socket.listen(USERS_EXPECTED_NUMBER)
     print('Waiting for clients to connect...')
+    connect_users()
 
     while True:
         pass
 
 
-def main(host_name, port):
+def main():
     global HOST
     global PORT
-    HOST = host_name
-    PORT = port
 
-    threading.Thread(target=run_server()).start()
+    '''while True:
+        HOST = input('Enter host name: ')
+
+        def _validate_ip(assumed_ip):
+            assumed_ip_parts = assumed_ip.split('.')
+            if len(assumed_ip_parts) != 4:
+                return False
+            for x in assumed_ip_parts:
+                if not x.isdigit():
+                    return False
+                i = int(x)
+                if i < 0 or i > 255:
+                    return False
+            return True
+
+        if _validate_ip(HOST):
+            break
+
+    while True:
+        try:
+            PORT = int(input('Enter port to run on: '))
+            if 1 <= PORT <= 65535:
+                break
+        except ValueError:
+            continue'''
+
+    run_server()
+
+
+if __name__ == '__main__':
+    main()

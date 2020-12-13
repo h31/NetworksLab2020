@@ -28,9 +28,9 @@ def main():
             if conn not in connections:
                 connections[addr] = conn
                 threading.Thread(target=_send_data, args=(addr,)).start()
-            connecting = True
+
             print(f'user with address {addr} is connected')
-            connecting = False
+
             threading.Thread(target=_connect_users).start()
 
     def _send_data(user):
