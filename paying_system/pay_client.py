@@ -32,18 +32,28 @@ def connection():
         if len(split_login) == 3:
             if int(split_login[0]) == 1 or int(split_login[0]) == 2:
                 msg, msg_len = build_msg(split_login)
-                print(f'sending msg: {msg} of length: {len(msg)}')
+                # print(f'sending msg: {msg} of length {len(msg)}')
                 client_socket.send_bytes_num(msg, len(msg))
                 # receive
                 received_header = client_socket.receive_bytes_num(HEADER_LENGTH)
                 length_message = int(received_header[1:].decode('UTF-8'))
-                msg_accepted = client_socket.receive_bytes_num(length_message).split(b'\0')
-                msg_accepted.insert(1, bytes(" Number of your wallet: ", 'UTF-8'))
-                msg_accepted = b' '.join(msg_accepted).decode('UTF-8')
-                print(msg_accepted)
-                if 'You have been successfully' in str(msg_accepted):
+                msg_accepted = client_socket.receive_bytes_num(length_message)
+                # msg_accepted.insert(1, bytes(" Number of your wallet: ", 'UTF-8'))
+                # msg_accepted = b' '.join(msg_accepted).decode('UTF-8')
+                # print(msg_accepted)
+                if 'You have been successfully register' in str(msg_accepted):
+                    msg_accepted = msg_accepted.split(b'\0')
+                    msg_accepted.insert(1, bytes("\nNumber of your wallet: ", 'UTF-8'))
+                    msg_accepted = b' '.join(msg_accepted).decode('UTF-8')
+                    print(msg_accepted)
                     user_command(client_socket)
                     break
+                elif 'You have been successfully' in str(msg_accepted):
+                    print(msg_accepted.decode("UTF-8"))
+                    user_command(client_socket)
+                    break
+                else:
+                    print(msg_accepted.decode("UTF-8"))
             else:
                 print("Enter 1 to sign in or 2 to sign up")
         else:
@@ -56,16 +66,17 @@ def user_command(client_socket):
     while True:
         print("-------------------------\n"
               "3 - get wallets\n"
-              "4 name - transaction\n"
+              "4 wallet sum - transaction\n"
               "5 - check balance\n"
               "6 - exit\n"
               "-------------------------")
         command = input("Enter command: ")
         split_command = command.split()
-        if len(split_command) == 2 and int(split_command[0]) == 4:
+        if len(split_command) == 3 and int(split_command[0]) == 4:
             msg, msg_len = build_msg(split_command)
             client_socket.send_bytes_num(msg, len(msg))
-            receive(client_socket)
+            answer = receive(client_socket).decode('UTF-8')
+            print(answer)
         elif len(split_command) == 1:
             if int(split_command[0]) == 3:
                 msg, msg_len = build_msg(split_command)
@@ -79,12 +90,11 @@ def user_command(client_socket):
                 answer = receive(client_socket).decode('UTF-8')
                 print(answer)
             elif int(split_command[0]) == 6:
-                # надо ли посылать exit серверу?
                 msg, msg_len = build_msg(split_command)
                 client_socket.send_bytes_num(msg, len(msg))
-                # тут падает, но закрывается)
-                client_socket.shutdown(socket.SHUT_WR)
+                client_socket.shutdown()
                 client_socket.close()
+                exit()
             else:
                 print("Wrong command")
         else:
@@ -109,7 +119,6 @@ def build_msg(input_msg):
     else:
         msg_len = len(first_piece)
         msg = code + bytes(f"{msg_len:<{HEADER_LENGTH}}", 'utf-8') + first_piece
-    print('header: ', code + bytes(f"{msg_len:<{HEADER_LENGTH}}", 'utf-8'))
     #print(f'when building msg. msg is {msg}; len is {msg_len}')
     return msg, msg_len
 
@@ -120,5 +129,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

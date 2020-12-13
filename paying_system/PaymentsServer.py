@@ -46,8 +46,9 @@ def connect_users():
 
 
 def build_msg(msg_type, msg_text, params=None):
-    print(f'in build msg. msg type {msg_type}, msg text: {msg_text}, params: {params}')
-    if msg_type in [2, 4, 5] and params[0]:
+    #print(f'in build msg. msg type {msg_type}, msg text: {msg_text}, params: {params}')
+    if msg_type in [2, 4, 5] and params and\
+            params[0]:
         msg_text = b'\0'.join([bytes(d, 'utf-8') for d in [msg_text, params[0]]])  # text \0 wallet number
     elif msg_type == 3:
         msg_text = bytes(msg_text, 'utf-8')
@@ -58,9 +59,9 @@ def build_msg(msg_type, msg_text, params=None):
     text_len = len(msg_text)
     msg = bytearray([msg_type])
     msg += bytes(f'{text_len:<{HEADER_LENGTH - 1}}', 'utf-8') + msg_text
-    print('msg bytes: ', msg)
+    #print('msg bytes: ', msg)
     print(f'Reply for command {msg_type} has been created')
-    print('Qutting build msg. length of msg is ', text_len)
+    #print('Qutting build msg. length of msg is ', text_len)
     return msg
 
 
@@ -68,16 +69,18 @@ def process_message(user):
     while True:
         try:
             message_type, data_header, data = receive_data(user)
-            print(message_type)
+            if not message_type:
+                return False
+            '''print(message_type)
             print(data_header)
-            print(data)
+            print(data)'''
             # close the user connection if smth is wrong with the data received
             # different actions on different message type
             if message_type == 1:  # sign in
                 print(f'User with address {user} wants to sign in')
-                signed_in = sign_in(user, data[0], data[1])
-                sign_in_response = 'You have been successfully logged in' if signed_in else 'Wrong user credentials'
-                connections[user].send(build_msg(message_type, sign_in_response))
+                wallet_num = sign_in(user, data[0], data[1])
+                sign_in_response = 'You have been successfully logged in' if wallet_num else 'Wrong user credentials'
+                connections[user].send(build_msg(message_type, sign_in_response, (wallet_num,)))
             elif message_type == 2:
                 print(f'User with address {user} wants to sign up')
                 registered_wallet_num = register(user, data[0], data[1])
@@ -117,7 +120,6 @@ def process_message(user):
 
 
 def sign_in(user, name, password):
-    print(f'sign in -- name: {name}, pass: {password}')
     cursor, connection = get_cursor_connection()
     cursor.execute(sql_get_wallet_num_by_name, (name, password))
     try:
@@ -130,7 +132,7 @@ def sign_in(user, name, password):
         return False
     else:
         users_online[user] = wallet_num
-        return True
+        return wallet_num
 
 
 def register(user, name, password):
@@ -163,7 +165,10 @@ def transfer_sum(sender_wallet_num, receiver_wallet_num, sum_to_transfer):
     sum_subtracted = cursor.fetchall()[0][0]
     if sum_subtracted:
         cursor.execute(sql_add_sum, (sum_to_transfer, receiver_wallet_num))
-        sum_added = cursor.fetchall()[0][0]
+        try:
+            sum_added = cursor.fetchall()[0][0]
+        except IndexError:
+            sum_added = False
         if sum_added:
             cursor.execute(sql_get_sum, (sender_wallet_num,))
             user_new_sum = cursor.fetchall()[0][0]
@@ -180,20 +185,18 @@ def get_sum_on_account(wallet_num):
 
 
 def receive_data(user):
-    print('receiving data')
-    data_header = server_socket.receive_bytes_num(HEADER_LENGTH + 1, connections[user])
+    try:
+        data_header = server_socket.receive_bytes_num(HEADER_LENGTH + 1, connections[user])
+    except KeyError:
+        return [False] * 3
     if not data_header:
-        return False, False
+        return [False] * 3
     message_type = data_header[0]
-    print(f'message type {message_type}')
-    print(f' header {data_header}')
     data_length = int(data_header[1:].decode().strip())
-    print(f'message length {data_length}')
     data = None
     if data_length:
         data = server_socket.receive_bytes_num(data_length, connections[user])
         print(f'data in received data {data}')
-        print(f'decoded data {data.decode("utf-8")}')
         data = [d.decode() for d in data.split(b'\0')]
     return message_type, data_header, data
 
