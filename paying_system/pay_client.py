@@ -32,7 +32,7 @@ def connection():
         if len(split_login) == 3:
             if int(split_login[0]) == 1 or int(split_login[0]) == 2:
                 msg, msg_len = build_msg(split_login)
-                #print('sending length ', len(msg))
+                print(f'sending msg: {msg} of length: {len(msg)}')
                 client_socket.send_bytes_num(msg, len(msg))
                 # receive
                 received_header = client_socket.receive_bytes_num(HEADER_LENGTH)
@@ -69,6 +69,7 @@ def user_command(client_socket):
         elif len(split_command) == 1:
             if int(split_command[0]) == 3:
                 msg, msg_len = build_msg(split_command)
+                print(f'sending header: {msg} of length: {len(msg)}')
                 client_socket.send_bytes_num(msg, len(msg))
                 answer = [d.decode('UTF-8') for d in receive(client_socket).split(b'\0')]
                 print(answer)
@@ -104,10 +105,11 @@ def build_msg(input_msg):
 
     if second_piece:
         msg_len = len(first_piece) + len(second_piece) + 1  # +1 - это пробел
-        msg = code + bytes(f"{msg_len:<{HEADER_LENGTH + 1}}", 'utf-8') + first_piece + b'\0' + second_piece
+        msg = code + bytes(f"{msg_len:<{HEADER_LENGTH}}", 'utf-8') + first_piece + b'\0' + second_piece
     else:
         msg_len = len(first_piece)
-        msg = code + bytes(f"{msg_len:<{HEADER_LENGTH + 1}}", 'utf-8') + first_piece
+        msg = code + bytes(f"{msg_len:<{HEADER_LENGTH}}", 'utf-8') + first_piece
+    print('header: ', code + bytes(f"{msg_len:<{HEADER_LENGTH}}", 'utf-8'))
     #print(f'when building msg. msg is {msg}; len is {msg_len}')
     return msg, msg_len
 

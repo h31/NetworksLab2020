@@ -47,7 +47,7 @@ def connect_users():
 
 def build_msg(msg_type, msg_text, params=None):
     print(f'in build msg. msg type {msg_type}, msg text: {msg_text}, params: {params}')
-    if msg_type in [2, 4, 5] and params:
+    if msg_type in [2, 4, 5] and params[0]:
         msg_text = b'\0'.join([bytes(d, 'utf-8') for d in [msg_text, params[0]]])  # text \0 wallet number
     elif msg_type == 3:
         msg_text = bytes(msg_text, 'utf-8')
@@ -120,7 +120,10 @@ def sign_in(user, name, password):
     print(f'sign in -- name: {name}, pass: {password}')
     cursor, connection = get_cursor_connection()
     cursor.execute(sql_get_wallet_num_by_name, (name, password))
-    wallet_num = cursor.fetchall()[0][0]
+    try:
+        wallet_num = cursor.fetchall()[0][0]
+    except IndexError:
+        wallet_num = False
     connection.commit()
 
     if not wallet_num:
@@ -134,7 +137,10 @@ def register(user, name, password):
     cursor, connection = get_cursor_connection()
     wallet_num = ''.join(random.choices(string.digits, k=16))
     cursor.execute(sql_insert_new_user_data, (name, password, wallet_num))
-    was_successful = cursor.fetchall()[0][0]
+    try:
+        was_successful = cursor.fetchall()[0][0]
+    except IndexError:
+        was_successful = False
     connection.commit()
 
     if was_successful:
@@ -180,14 +186,15 @@ def receive_data(user):
         return False, False
     message_type = data_header[0]
     print(f'message type {message_type}')
-    print(f'rest of header {data_header[1:]}')
+    print(f' header {data_header}')
     data_length = int(data_header[1:].decode().strip())
     print(f'message length {data_length}')
     data = None
     if data_length:
-        data = server_socket.receive_bytes_num(data_length + 1, connections[user])
+        data = server_socket.receive_bytes_num(data_length, connections[user])
         print(f'data in received data {data}')
-        data = [d.decode() for d in data[1:].split(b'\0')]
+        print(f'decoded data {data.decode("utf-8")}')
+        data = [d.decode() for d in data.split(b'\0')]
     return message_type, data_header, data
 
 
