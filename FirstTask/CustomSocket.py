@@ -33,8 +33,14 @@ class CustomSocket:
     def send(self, num):
         self.sock.send(num)
 
-    def recv(self, num):
-        self.sock.recv(num)
+    def send_all(self, data, current_socket=None):
+        if current_socket is None:
+            current_socket = self.sock
+        current_socket.sendall(bytes(data, encoding='utf-8'))
+
+
+    '''def recv(self, num):
+        self.sock.recv(num)'''
 
     def is_closed(self):
         return True if self.sock.fileno() == -1 else False
@@ -59,3 +65,8 @@ class CustomSocket:
             chunks.append(chunk)
             bytes_received = bytes_received + len(chunk)
         return b''.join(chunks)
+
+    def receive(self, current_socket=None):
+        if current_socket is None:
+            current_socket = self.sock
+        return current_socket.recv(4096)

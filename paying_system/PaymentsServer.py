@@ -1,3 +1,4 @@
+import json
 import logging
 import random
 import socket
@@ -10,7 +11,6 @@ from FirstTask.CustomSocket import CustomSocket
 
 HOST = '127.0.0.1'
 PORT = 8090
-HEADER_LENGTH = 10
 USERS_EXPECTED_NUMBER = 20
 
 server_socket = CustomSocket()
@@ -46,68 +46,66 @@ def connect_users():
 
 
 def build_msg(msg_type, msg_text, params=None):
-    #print(f'in build msg. msg type {msg_type}, msg text: {msg_text}, params: {params}')
-    if msg_type in [2, 4, 5] and params and\
-            params[0]:
-        msg_text = b'\0'.join([bytes(d, 'utf-8') for d in [msg_text, params[0]]])  # text \0 wallet number
+    msg = {
+        'type': msg_type,
+        'text': msg_text
+    }
+    if msg_type in [4, 5] and params and params[0]:
+        msg['sum'] = params[0]
+    if msg_type == 2 and params and params[0]:
+        msg['wallet'] = params[0]
     elif msg_type == 3:
-        msg_text = bytes(msg_text, 'utf-8')
+        list_of_users = []
         for user_data in params[0]:
-            msg_text += b'\0'.join([bytes(d, 'utf-8') for d in user_data])
-    else:
-        msg_text = bytes(msg_text, 'utf-8')
-    text_len = len(msg_text)
-    msg = bytearray([msg_type])
-    msg += bytes(f'{text_len:<{HEADER_LENGTH - 1}}', 'utf-8') + msg_text
-    #print('msg bytes: ', msg)
-    print(f'Reply for command {msg_type} has been created')
-    #print('Qutting build msg. length of msg is ', text_len)
+            list_of_users.append({
+                'name': user_data[0],
+                'wallet': user_data[1]
+            })
+        msg['users'] = list_of_users
+    print(f'Reply for command {msg_type} has been created. msg: {msg}')
+    msg = json.dumps(msg)
+    msg = bytes(msg, encoding='utf-8')
     return msg
 
 
 def process_message(user):
     while True:
         try:
-            message_type, data_header, data = receive_data(user)
+            message_type, data = receive_data(user)
             if not message_type:
                 return False
-            '''print(message_type)
-            print(data_header)
-            print(data)'''
             # close the user connection if smth is wrong with the data received
             # different actions on different message type
             if message_type == 1:  # sign in
                 print(f'User with address {user} wants to sign in')
-                wallet_num = sign_in(user, data[0], data[1])
+                wallet_num = sign_in(user, data['name'], data['pass'])
                 sign_in_response = 'You have been successfully logged in' if wallet_num else 'Wrong user credentials'
-                connections[user].send(build_msg(message_type, sign_in_response, (wallet_num,)))
+                connections[user].sendall(build_msg(message_type, sign_in_response, (wallet_num,)))
             elif message_type == 2:
                 print(f'User with address {user} wants to sign up')
-                registered_wallet_num = register(user, data[0], data[1])
+                registered_wallet_num = register(user, data['name'], data['pass'])
                 register_response = 'You have been successfully registered' if registered_wallet_num else \
                     'User with this name already exists'
-                connections[user].send(build_msg(message_type, register_response, (registered_wallet_num,)))
+                connections[user].sendall(build_msg(message_type, register_response, (registered_wallet_num,)))
             elif message_type == 3:
                 print(f'User {users_online[user]} wants to see info about other users')
                 existing_wallets = get_existing_wallets(user)
-                connections[user].send(build_msg(message_type, 'Existing users:', (existing_wallets,)))
+                connections[user].sendall(build_msg(message_type, 'Existing users:', (existing_wallets,)))
             elif message_type == 4:
-                print(f'User {users_online[user]} wants to send {data[1]}€ to user {data[0]}')
-                user_new_sum = transfer_sum(users_online[user], data[0],
-                                            data[1])  # from what wallet, to what wallet, sum to transfer
+                print(f'User {users_online[user]} wants to send {data["sum"]}€ to user {data["wallet"]}')
+                user_new_sum = transfer_sum(users_online[user], data['wallet'],
+                                            data['sum'])  # from what wallet, to what wallet, sum to transfer
                 msg = build_msg(message_type, 'Transaction was successful. Your balance...',
                                 (str(user_new_sum),)) if user_new_sum else build_msg(message_type,
                                                                                      'Error occurred! Check your'
                                                                                      ' balance and receiver wallet'
                                                                                      ' number.')
-                connections[user].send(msg)
+                connections[user].sendall(msg)
             elif message_type == 5:
                 print(f'User {users_online[user]} want to know how much money he has on the account')
                 sum_on_account = get_sum_on_account(users_online[user])
-                connections[user].send(build_msg(message_type, 'Your balance:', (str(sum_on_account),)))
+                connections[user].sendall(build_msg(message_type, 'Your balance:', (str(sum_on_account),)))
             elif message_type == 6:  # user wants to quit. send goodbye
-                print(f'User {users_online[user]} wants to leave the server')
-                connections[user].send(build_msg(message_type, 'Leaving server...'))
                 close_user_connection(user)
             else:
                 pass
@@ -160,6 +158,8 @@ def get_existing_wallets(user):
 
 def transfer_sum(sender_wallet_num, receiver_wallet_num, sum_to_transfer):
     user_new_sum = None
+    if int(sum_to_transfer) <= 0:
+        return user_new_sum
     cursor, connection = get_cursor_connection()
     cursor.execute(sql_subtract_sum, (sum_to_transfer, sender_wallet_num))
     sum_subtracted = cursor.fetchall()[0][0]
@@ -172,6 +172,8 @@ def transfer_sum(sender_wallet_num, receiver_wallet_num, sum_to_transfer):
         if sum_added:
             cursor.execute(sql_get_sum, (sender_wallet_num,))
             user_new_sum = cursor.fetchall()[0][0]
+            if user_new_sum < 0:
+                return None
     connection.commit()
     return user_new_sum
 
@@ -186,19 +188,13 @@ def get_sum_on_account(wallet_num):
 
 def receive_data(user):
     try:
-        data_header = server_socket.receive_bytes_num(HEADER_LENGTH + 1, connections[user])
+        data = json.loads(server_socket.receive(connections[user]).decode())
     except KeyError:
-        return [False] * 3
-    if not data_header:
-        return [False] * 3
-    message_type = data_header[0]
-    data_length = int(data_header[1:].decode().strip())
-    data = None
-    if data_length:
-        data = server_socket.receive_bytes_num(data_length, connections[user])
-        print(f'data in received data {data}')
-        data = [d.decode() for d in data.split(b'\0')]
-    return message_type, data_header, data
+        return [False] * 2
+    if not data:
+        return [False] * 2
+    message_type = data['type']
+    return message_type, data
 
 
 def close_user_connection(user):

@@ -33,3 +33,9 @@ Message codes for pay system:
 4 - transfer a sum to a certain user
 5 - checking up ow much money there is on an account
 6 - quit the system
+
+{
+   'type': '',
+   'text': '',
+   'option': ''
+}
