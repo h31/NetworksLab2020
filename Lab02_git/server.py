@@ -20,7 +20,7 @@ selector = selectors.DefaultSelector()
 
 def main():
 
-    serverTz = strftime("%z", gmtime())
+    #serverTz = strftime("%z", gmtime())
     
     def _init():  
         global serverSocket
@@ -36,7 +36,7 @@ def main():
         
     def _connect(mask):
         global conn
-        timezoneData = strftime("%z", gmtime()).encode("Windows-1251")
+        timezoneData = strftime("%z", gmtime()).encode("utf-8")
         conn, address = serverSocket.accept()
         conn.setblocking(False)
         sys.stdout.write('\b')
@@ -45,40 +45,36 @@ def main():
         conn.send(timezoneData)
         selector.register(conn, selectors.EVENT_READ, _send)
            
-             
-    
+         
+            
     def _send(conn):
         try:
-             
-            data = conn.recv(BLOCK_SIZE).decode("Windows-1251")
+            data = conn.recv(BLOCK_SIZE)
             
             if not data:
                 print('closing', conn)
                 sel.unregister(conn)
-                conn.close()            
+                conn.close() 
+            
+            messageEndFlag = ("\1").encode("utf-8")
+            messageHeaderFlag = ("\2").encode("utf-8")
+                 
             for receiver in connectedUsers:
                 now = datetime.now()
                 currentTime = datetime.timestamp(now)   
                 try:
-                    if (len(data.split("\2")) > 1):
-                        receiver.send((f"{currentTime}\2{data}").encode("Windows-1251"))
+                    if ((messageHeaderFlag) in data):
+                        timeToAppend = f"{currentTime}\2".encode("utf-8")
+                        fixedData = timeToAppend + data
+                        receiver.send(fixedData)
                     else:
-                        receiver.send(data.encode("Windows-1251"))           
+                        receiver.send(data)
                 except ConnectionResetError:
-                    pass           
+                    pass 
+                        
         except ConnectionResetError:
-            pass
-                 
-                 
-    
-    def _spinner():
-        spinner = itertools.cycle(['-', '/', '|', '\\'])
-        while True:
-            sys.stdout.write(next(spinner))   
-            sys.stdout.flush()               
-            sys.stdout.write('\b')
-            sleep(0.2)
-        
+            pass                 
+      
     
     _init()
     

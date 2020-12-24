@@ -50,7 +50,7 @@ def main():
         
         clientTimezone = strftime("%z", gmtime())
         
-        serverTimezone = clientSocket.recv(BLOCK_SIZE).decode("Windows-1251")
+        serverTimezone = clientSocket.recv(BLOCK_SIZE).decode("utf-8")
      
         
          
@@ -58,7 +58,7 @@ def main():
     def _send():
         while True:
             
-            msg = f"{userName}\2{input()}\1".encode("Windows-1251")
+            msg = f"{userName}\2{input()}\1".encode("utf-8")
             
             try:
                 clientSocket.send(msg)
@@ -66,38 +66,37 @@ def main():
             except ConnectionResetError:
                 handleException()
                 
-           
-           
+            
+    
     def _receive():
         
-        msg = ""
+        msg = b''
+        messageEndFlag = ("\1").encode("utf-8")
         
         while True:
             try:
+                data = clientSocket.recv(BLOCK_SIZE)
                 
-                data = clientSocket.recv(BLOCK_SIZE).decode("Windows-1251")
-               
-                               
                 if not data:
                     break
+                
+                if (messageEndFlag in data):
+                
+                    data = data.split(messageEndFlag)
                     
-                if ("\1" in data):
-                    data = data.split("\1")
                     if (not msg):
-                        _print_msg(data[0])
+                        _print_msg(data[0].decode("utf-8"))
                     else:
                         msg += data[0]
-                        _print_msg(msg)
-                        msg = ""
+                        _print_msg(msg.decode("utf-8"))
+                        msg = b''
+                        
                 else:
                     msg += data
-                
-                
+                    
             except ConnectionResetError:
                 handleException()
-            
-                
-            
+                    
             
     def _fix_time(serverTz, clientTz, now):
         now = datetime.fromtimestamp(float(now))
