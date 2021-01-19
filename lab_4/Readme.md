@@ -17,14 +17,14 @@ Activities for buyer:
 - Get history about purchase activities
 - View list of store in system
 - View list of products in a specific store
-- Close the connection
+- Disconnect from server
 
 Activities for seller:
 
 - Add a store
 - View sales history
 - View list of store in system
-- Close the connection
+- Disconnect from server
 
 To launch the client application:
 
