@@ -36,7 +36,7 @@ python3 food-client.py host port
 
 Server will receive request from client, which include 2 parts:
 
-1. Header 4 symbols: Store the size of message.
+1. Header 8 symbols: Store the size of message.
 2. Message in type json: type request and the information corresponding to the request.
 
 Server receive mail from users  and store into database information about sender, receiver, header and content of mail.
