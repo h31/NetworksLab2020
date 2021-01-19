@@ -13,15 +13,15 @@ In application, user can choose role seller or buyer.
 
 Activities for buyer:
 
-- Create an order
-- Get history about purchase activities
+- Order items in the store buy give name of store, buyer's location and list items, it will show the items, that already have in the store, the lacks items and its prices. 
+- View the history of buying
 - View list of store in system
 - View list of products in a specific store
 - Disconnect from server
 
 Activities for seller:
 
-- Add a store
+- Add an new store with its location,  items and prices. Store create buy a seller will belong to him
 - View sales history
 - View list of store in system
 - Disconnect from server
