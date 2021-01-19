@@ -26,6 +26,17 @@ Activities for seller:
 - View list of store in system
 - Disconnect from server
 
+Message types for mail system:
+ 00 - Sign in
+ 01 - Sign up
+ 02 - Create an order
+ 03 - Confirm buy
+ 04 - View history of buyer
+ 05 - View sales history
+ 07 - View list items at store
+ 08 - View list store
+ 09 - Disconnect
+
 To launch the client application:
 
 ```
@@ -48,6 +59,16 @@ Server allows user to read mail through header of mail.
 Server allows user to view list user.
 
 Server receive request sign out and close the connection of client.
+
+Message types for mail system:
+
+0 - Sign in
+1 - Sign up
+2 - Write mail
+3 - View sent box
+4 - View received box
+5 - View list user
+6 - Disconnect
 
 To launch server:
 
