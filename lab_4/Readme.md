@@ -67,8 +67,9 @@ Message types for mail system:
 2 - Write mail
 3 - View sent box
 4 - View received box
-5 - View list user
-6 - Disconnect
+5 - Read mail
+6 - View list user
+7 - Disconnect
 
 To launch server:
 
