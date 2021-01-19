@@ -65,7 +65,7 @@ def ui():
         action = input("Choose your option (h for help): ")
         if action == "h":
             print(
-                "USER OPTIONS:\n\t 1-Compose mail\n\t 2-View inbox\n\t 3-View outbox\n\t 4-Read mail \n\t 5-All user information\n\t 6-Disconnect \n"
+                "USER OPTIONS:\n\t 1-Compose mail\n\t 2-View inbox\n\t 3-View send box\n\t 4-Read mail \n\t 5-All user information\n\t 6-Disconnect \n"
             )
         elif action == "1":
             handle_new_mail()
@@ -195,7 +195,7 @@ def send_to_server(msg):
 def recv_from_server():
     length_d = cli_socket.recv(LENGTH)
     if len(length_d) == 0:
-        type_d = -1
+        os._exit(1)
     else:
         data = cli_socket.recv(int(length_d.decode("UTF-8")))
         data = json.loads(data.decode("UTF-8"))
