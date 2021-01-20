@@ -3,6 +3,7 @@ import threading
 import os
 import sqlite3
 import json
+import hashlib
 
 HOST = "0.0.0.0"
 PORT = 5000
@@ -85,9 +86,10 @@ def handle_sign_up(cli_addr, db, rq):
     if len(rows) == 1:
         msg["msg"] = "User already exist"
     else:
+        password_hash = hashlib.sha256(str(rq["password"]).encode("utf-8"))
         db.execute(
             "INSERT INTO USERS (user_name, user_password) VALUES ('{0}', '{1}') ;".format(
-                rq["id"], rq["password"]
+                rq["id"], password_hash
             )
         )
         db.commit()
@@ -99,9 +101,10 @@ def handle_sign_up(cli_addr, db, rq):
 
 
 def handle_sign_in(cli_addr, db, rq):
+    password_hash = hashlib.sha256(str(rq["password"]).encode("utf-8"))
     cursor = db.execute(
         "SELECT user_name, user_password from USERS WHERE user_name = '{0}' and user_password = '{1}';".format(
-            rq["id"], rq["password"]
+            rq["id"], password_hash
         )
     )
     rows = cursor.fetchall()
