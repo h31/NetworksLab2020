@@ -10,23 +10,8 @@ import utilz as uz
 
 users = dict()
 
-def timeout_handler(sock):
-    while True:
-        for addr, user in list(users.items()):
-            if time.time() - user.ts >= 5 and addr in users:
-                if user.timeouted:
-                    print(f'user with addr {addr} deleted due to timeouted twice')
-                    del users[addr]
-                elif user.last_package is not None:
-                    print(f'user with addr {addr} timeouted')
-                    user.ts = time.time()
-                    user.timeouted = True
-                    uz.send(sock, addr, user.last_package, user.mode)
-
 
 def eloop(sock):
-    timeout_thread = threading.Thread(target=timeout_handler, args=(sock, ))
-    timeout_thread.start()
     while True:
         try:
             data, addr = uz.recv(sock)
@@ -49,7 +34,6 @@ def eloop(sock):
                 error = tf.ERROR.create_from_code(tf.ErrorCode.NOTFOUND)
                 uz.send(sock, addr, error, users[addr].mode)
                 del users[addr]
-                continue
 
             users[addr].data = data
             users[addr].block = 0
@@ -64,7 +48,6 @@ def eloop(sock):
                 error = tf.ERROR.create_from_code(tf.ErrorCode.EXIST)
                 uz.send(sock, addr, error, users[addr].mode)
                 del users[addr]
-                continue
 
             # check if disk full
             uz.send(sock, addr, tf.ACK.create(0), users[addr].mode)
@@ -75,7 +58,6 @@ def eloop(sock):
             if len(file) < 512:
                 print(f'File {users[addr].filename} with {len(users[addr].data)} bytes send')
                 del users[addr]
-                continue
 
             package = tf.DATA.create(users[addr].block + 1, file)
             users[addr].last_package = package
@@ -90,7 +72,17 @@ def eloop(sock):
                 uz.store(users[addr].filename, users[addr].data, users[addr].mode)
                 print(f'File {users[addr].filename} with {len(users[addr].data)} bytes stored')
                 del users[addr]
-    timeout_thread.join()
+
+        for addr, user in list(users.items()):
+            if time.time() - user.ts >= 5 and addr in users:
+                if user.timeouted:
+                    print(f'user with addr {addr} deleted due to timeouted twice')
+                    del users[addr]
+                elif user.last_package is not None:
+                    print(f'user with addr {addr} timeouted')
+                    user.ts = time.time()
+                    user.timeouted = True
+                    uz.send(sock, addr, user.last_package, user.mode)
 
 
 def init():
@@ -102,4 +94,3 @@ def init():
 
 
 eloop(init())
-
